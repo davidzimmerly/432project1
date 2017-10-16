@@ -23,14 +23,36 @@ void login(int socket,sockaddr_in remoteAddress,int addressSize,std::string user
 		std::cerr << "Success.\n";
 		
 }
-void logout(int socket,sockaddr_in remoteAddress,int addressSize,std::string userName){
-		std::cerr << "Logging Out " << userName << " ..." ;
-		char myBuffer[BUFFERLENGTH];
-		sprintf(myBuffer, "0001%s", userName.c_str());
+void logout(int socket,sockaddr_in remoteAddress,int addressSize){
+		//std::cerr << "Logging Out " << userName << " ..." ;
+		char myBuffer[4];
+		sprintf(myBuffer, "0001");
 		if (sendto(socket, myBuffer, strlen(myBuffer), 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
 			perror("sendto");
 		std::cerr << "Success.\n";
 		
+}
+
+void requestChannels(int socket,sockaddr_in remoteAddress,int addressSize){
+		char myBuffer[4];
+		char replyBuffer[BUFFERLENGTH];
+		for (int x=0;x<BUFFERLENGTH;x++){
+			replyBuffer[x] ='\0';
+		}
+		sprintf(myBuffer, "0005");
+		if (sendto(socket, myBuffer, strlen(myBuffer), 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
+			perror("sendto");
+		std::cerr << "Success.\n";
+		printf("waiting for server reply on port %d\n", THEPORT);
+		socklen_t remoteIPAddressSize = sizeof(remoteAddress);
+		int bytesRecvd = recvfrom(socket, replyBuffer, BUFFERLENGTH, 0, (struct sockaddr *)&remoteAddress, &remoteIPAddressSize);
+		printf("received %d bytes\n", bytesRecvd);
+		if (bytesRecvd >= 4) {
+			std::string identifier(&replyBuffer[0],&replyBuffer[4]);//need to change to read until /r/l or something
+			std::string remoteIPAddress=std::string (std::string (inet_ntoa(remoteAddress.sin_addr)));
+			printf("***%s",replyBuffer);
+		}	
+	
 }
 
 
@@ -41,7 +63,7 @@ int main (int argc, char *argv[]){
 	socklen_t addressSize = sizeof(remoteAddress);
 	int bytesRecvd;
 	int mySocket;
-	std::string serverAddress = "127.0.0.1";
+	std::string serverAddress = "127.0.0.1";//"128.223.4.39";
 	int MSGS = 1;
 
 	mySocket=socket(AF_INET, SOCK_DGRAM, 0);
@@ -59,6 +81,9 @@ int main (int argc, char *argv[]){
 	}
 
 	login(mySocket,remoteAddress,addressSize,"billy joe234234234234243243432243432243432432432");
+	requestChannels(mySocket,remoteAddress,addressSize);
+	logout(mySocket,remoteAddress,addressSize);
+
 	close(mySocket);
 	
 

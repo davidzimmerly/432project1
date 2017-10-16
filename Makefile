@@ -1,5 +1,5 @@
 CC=g++
-CFLAGS = -g 
+CPPFLAGS = -g -Wall
 
 all: server client
 
