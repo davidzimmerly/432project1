@@ -1,18 +1,16 @@
 #include <stdio.h>
 #include <stdlib.h>	/* needed for os x*/
- #include<cstdlib>
+#include<cstdlib>
 #include <string.h>	/* strlen */
 #include <netdb.h>      /* gethostbyname() */
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-
 #include <iostream>
 #include <string>
 #include <iomanip>
 #include <sstream>
 #include <vector>
-#define _GLIBCXX_USE_C99 1
 #define BUFFERLENGTH  1024
 #define THEPORT  3264
 
