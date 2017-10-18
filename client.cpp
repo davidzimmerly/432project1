@@ -9,16 +9,13 @@
 #include <iostream>
 #include <unistd.h>
 #include <vector>
+#include "shared.h"
 
 #define BUFFERLENGTH  1024
 #define THEPORT  3264
 
 
-union intOrBytes
-{
-	unsigned int integer;
-	unsigned char byte[4];
-};
+
 
 
 class client{
@@ -33,64 +30,71 @@ class client{
 	
 	public:
 	void login(){
-			std::cerr << "Logging In " << userName << " ..." ;
-			char myBuffer[BUFFERLENGTH];
-			sprintf(myBuffer, "0000%s", userName.c_str());
-			if (sendto(mySocket, myBuffer, strlen(myBuffer), 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
-				perror("sendto");
-			std::cerr << "Success.\n";
-			
+		std::cerr << "Logging In " << userName << " ..." ;
+		int loginSize =36;
+		char myBuffer[loginSize];
+		strcpy(myBuffer,"0000");
+		unsigned int choice = loginSize;
+		if (choice>userName.length())
+			choice = userName.length();
+ 		std::cerr << "choice: " << choice <<std::endl;
+ 		for (unsigned int x=0; x<choice; x++){//need error checking on input eventually, assuming it is <=32 here
+		   	myBuffer[x+4] = userName[x];
+		}   
+		if (sendto(mySocket, myBuffer, 36, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
+			perror("sendto");
+		std::cerr << "Success.\n";
 	}
 	void logout(){
-			std::cerr << "Logging Out " << userName << " ..." ;
-			char myBuffer[4];
-			sprintf(myBuffer, "0001");
-			if (sendto(mySocket, myBuffer, strlen(myBuffer), 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
-				perror("sendto");
-			std::cerr << "Success.\n";
-			close(mySocket);
+		std::cerr << "Logging Out " << userName << " ..." ;
+		char myBuffer[4];
+		sprintf(myBuffer, "0001");
+		if (sendto(mySocket, myBuffer, strlen(myBuffer), 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
+			perror("sendto");
+		std::cerr << "Success.\n";
+		close(mySocket);
 	}
 
 	void requestChannels(){
-			char myBuffer[4];
-			char replyBuffer[BUFFERLENGTH];
-			for (int x=0;x<BUFFERLENGTH;x++){
-				replyBuffer[x] ='\0';
-			}
-			sprintf(myBuffer, "0005");
-			if (sendto(mySocket, myBuffer, strlen(myBuffer), 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
-				perror("sendto");
-			//printf("waiting for server reply on port %d\n", THEPORT);
-			int bytesRecvd = recvfrom(mySocket, replyBuffer, BUFFERLENGTH, 0, (struct sockaddr *)&remoteAddress, &addressSize);
-			//printf("(channel request) client received %d bytes\n", bytesRecvd);
-			if (bytesRecvd >= 36) {
-				std::string identifier(&replyBuffer[0],&replyBuffer[4]);
-				if (std::atoi(identifier.c_str()) == 1){//correct response code from server
-					
-					union intOrBytes totalChannels;
-					totalChannels.byte[0] = replyBuffer[4];
-					totalChannels.byte[1] = replyBuffer[5];
-					totalChannels.byte[2] = replyBuffer[6];
-					totalChannels.byte[3] = replyBuffer[7];
-					std::vector<std::string> listOfChannels;
-					int position=8;
-					for (unsigned int x = 0; x <= totalChannels.integer; x++){
-						std::string channel(&replyBuffer[position],&replyBuffer[position+32]);
-						listOfChannels.push_back(channel);
-						position+=32;
-					}
-					std::cerr << "List of received Channels: ";
-					unsigned int count=1;
-					for (std::vector<std::string>::iterator iter = listOfChannels.begin(); iter != listOfChannels.end(); ++iter) {
-				    	std::cerr << *iter;
-				    	if (count++<totalChannels.integer)
-				    	 	std::cerr << ", ";
-
-				    }
-				    std::cerr<<std::endl;
-				}
+		char myBuffer[4];
+		char replyBuffer[BUFFERLENGTH];
+		for (int x=0;x<BUFFERLENGTH;x++){
+			replyBuffer[x] ='\0';
+		}
+		sprintf(myBuffer, "0005");
+		if (sendto(mySocket, myBuffer, strlen(myBuffer), 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
+			perror("sendto");
+		//printf("waiting for server reply on port %d\n", THEPORT);
+		int bytesRecvd = recvfrom(mySocket, replyBuffer, BUFFERLENGTH, 0, (struct sockaddr *)&remoteAddress, &addressSize);
+		//printf("(channel request) client received %d bytes\n", bytesRecvd);
+		if (bytesRecvd >= 36) {
+			std::string identifier(&replyBuffer[0],&replyBuffer[4]);
+			if (std::atoi(identifier.c_str()) == 1){//correct response code from server
 				
-			}	
+				union intOrBytes totalChannels;
+				totalChannels.byte[0] = replyBuffer[4];
+				totalChannels.byte[1] = replyBuffer[5];
+				totalChannels.byte[2] = replyBuffer[6];
+				totalChannels.byte[3] = replyBuffer[7];
+				std::vector<std::string> listOfChannels;
+				int position=8;
+				for (unsigned int x = 0; x <= totalChannels.integer; x++){
+					std::string channel(&replyBuffer[position],&replyBuffer[position+32]);
+					listOfChannels.push_back(channel);
+					position+=32;
+				}
+				std::cerr << "List of received Channels: ";
+				unsigned int count=1;
+				for (std::vector<std::string>::iterator iter = listOfChannels.begin(); iter != listOfChannels.end(); ++iter) {
+			    	std::cerr << *iter;
+			    	if (count++<totalChannels.integer)
+			    	 	std::cerr << ", ";
+
+			    }
+			    std::cerr<<std::endl;
+			}
+			
+		}	
 		
 	}
 	void join(std::string channel){
