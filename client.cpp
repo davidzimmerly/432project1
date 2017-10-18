@@ -37,11 +37,10 @@ class client{
 		unsigned int choice = loginSize;
 		if (choice>userName.length())
 			choice = userName.length();
- 		std::cerr << "choice: " << choice <<std::endl;
  		for (unsigned int x=0; x<choice; x++){//need error checking on input eventually, assuming it is <=32 here
 		   	myBuffer[x+4] = userName[x];
 		}   
-		if (sendto(mySocket, myBuffer, 36, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
+		if (sendto(mySocket, myBuffer, loginSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
 			perror("sendto");
 		std::cerr << "Success.\n";
 	}
@@ -98,16 +97,25 @@ class client{
 		
 	}
 	void join(std::string channel){
-		char myBuffer[36];
-		for (int x=0;x<36;x++){
-				myBuffer[x] ='\0';
-			}
-			
-		sprintf(myBuffer, "0002%s",channel.c_str());
+		int joinSize = 36;
+		std::cerr << "Joining channel " << channel << " ..." ;
 
-		if (sendto(mySocket, myBuffer, strlen(myBuffer), 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
+		char myBuffer[joinSize];
+		initBuffer(myBuffer,joinSize);
+		unsigned int choice = joinSize;
+		if (choice>channel.length())
+			choice = channel.length();
+		strcpy(myBuffer,"0002");
+		for (unsigned int x=0; x<choice; x++){//need error checking on input eventually, assuming it is <=32 here
+		   	myBuffer[x+4] = channel[x];
+		}   
+		if (sendto(mySocket, myBuffer, joinSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
 			perror("requesting to join a channel (from client)");
 		std::cerr << "Success.\n";
+	
+
+
+
 	}	
 	client(){
 		mySocket=0;
@@ -148,6 +156,9 @@ int main (int argc, char *argv[]){
 	thisClient->login();
 	thisClient->requestChannels();
 	thisClient->join("newChannel");
+	thisClient->join("newChannel3jkkjkjkkjkjkjkjjkjkkjkjkj");
+	thisClient->join("newChannelasfdkjhlkadf");
+	thisClient->join("newChannel32432423423");
 	thisClient->requestChannels();
 	thisClient->logout();
 	
