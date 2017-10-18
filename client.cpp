@@ -7,9 +7,19 @@
 #include <arpa/inet.h>
 #include <iostream>
 #include <unistd.h>
+#include <vector>
+
 
 #define BUFFERLENGTH  1024
 #define THEPORT  3264
+
+
+union intOrBytes
+{
+	unsigned int integer;
+	unsigned char byte[4];
+};
+
 
 class client{
 	private:
@@ -54,13 +64,66 @@ class client{
 			printf("waiting for server reply on port %d\n", THEPORT);
 			//socklen_t remoteIPAddressSize = sizeof(remoteAddress);
 			int bytesRecvd = recvfrom(mySocket, replyBuffer, BUFFERLENGTH, 0, (struct sockaddr *)&remoteAddress, &addressSize);
-			printf("received %d bytes\n", bytesRecvd);
-			if (bytesRecvd >= 4) {
+			printf("(channel request) client received %d bytes\n", bytesRecvd);
+			if (bytesRecvd >= 36) {
 				std::string identifier(&replyBuffer[0],&replyBuffer[4]);//need to change to read until /r/l or something
-				std::string remoteIPAddress=std::string (std::string (inet_ntoa(remoteAddress.sin_addr)));
-				printf("***%s",replyBuffer);//need to format reply buffer
+				//std::string remoteIPAddress=std::string (std::string (inet_ntoa(remoteAddress.sin_addr)));
+				//printf("%s",replyBuffer);//need to format reply buffer
+				union intOrBytes totalChannels;
+				totalChannels.byte[0] = replyBuffer[4];
+				totalChannels.byte[1] = replyBuffer[5];
+				totalChannels.byte[2] = replyBuffer[6];
+				totalChannels.byte[3] = replyBuffer[7];
+				//std::cerr << "replyBuffer[5] = " << (int)replyBuffer[5]<< std::endl;
+				std::vector<std::string> listOfChannels;
+				int position=8;
+				for (unsigned int x = 0; x <= totalChannels.integer; x++){
+					std::string channel(&replyBuffer[position],&replyBuffer[position+32]);
+					listOfChannels.push_back(channel);
+					position+=32;
+				}
+				std::cerr << "List of received Channels: ";
+				unsigned int count=0;
+				for (std::vector<std::string>::iterator iter = listOfChannels.begin(); iter != listOfChannels.end(); ++iter) {
+			    	std::cerr << *iter;
+			    	if (count++<totalChannels.integer)
+			    	 	std::cerr << ", ";
+
+			    }
+			    std::cerr<<std::endl;
+
+				std::cerr << "test.integer = " << totalChannels.integer<< std::endl;
+				/*std::cerr << "test.byte[0] = " << (int)totalChannels.byte[0]<< std::endl;
+				std::cerr << "test.byte[1] = " << (int)totalChannels.byte[1]<< std::endl;
+				std::cerr << "test.byte[2] = " << (unsigned int)totalChannels.byte[2]<< std::endl;
+				std::cerr << "test.byte[3] = " << (unsigned int)totalChannels.byte[3]<< std::endl;
+		
+				if (std::atoi(identifier.c_str()) == 1){//correct response code
+					std::vector<std::string> listOfChannels;
+					int bytesDone = 0;
+					int pos1=4;
+					int pos2=35;
+					while (bytesDone+32<bytesRecvd){
+						std::string channel(&myBuffer[pos1],&myBuffer[pos2]);
+							
+					}
+					
+				}*/
+
 			}	
 		
+	}
+	void join(std::string channel){
+		char myBuffer[36];
+		for (int x=0;x<36;x++){
+				myBuffer[x] ='\0';
+			}
+			
+		sprintf(myBuffer, "0002%s",channel.c_str());
+
+		if (sendto(mySocket, myBuffer, strlen(myBuffer), 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
+			perror("requesting to join a channel (from client)");
+		std::cerr << "Success.\n";
 	}	
 	client(){
 		mySocket=0;
@@ -100,11 +163,13 @@ int main (int argc, char *argv[]){
 	client* thisClient = new client("Bobby Joeleine Smith4357093487509384750938475094387509348750439875430987435","127.0.0.1");
 	thisClient->login();
 	thisClient->requestChannels();
+	thisClient->join("newChannel");
+	thisClient->requestChannels();
 	thisClient->logout();
 	
 	
 	
-
+	delete(thisClient);
 	return 0;
 
 	
