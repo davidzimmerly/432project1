@@ -130,7 +130,53 @@ class client{
 
 
 
+	}
+	void leave(std::string channel){
+		std::cerr << "Leaving channel " << channel << " ..." ;
+		unsigned char myBuffer[joinSize];
+		initBuffer(myBuffer,joinSize);
+		uint8_t choice = joinSize;
+		if (choice>channel.length())
+			choice = channel.length();
+		myBuffer[0] = myBuffer[1] = myBuffer[2] = '0';
+		myBuffer[3] = '3';
+
+
+		for (uint8_t x=0; x<choice; x++){//need error checking on input eventually, assuming it is <=32 here
+		   	myBuffer[x+4] = channel[x];
+		}   
+		if (sendto(mySocket, myBuffer, joinSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
+			perror("requesting to leave a channel (from client)");
+		std::cerr << "Success.\n";
+	
+
+
+
 	}	
+	void who(std::string channel){
+		std::cerr << "who is in channel " << channel << " ..." ;
+		unsigned char myBuffer[joinSize];
+		initBuffer(myBuffer,joinSize);
+		uint8_t choice = joinSize;
+		if (choice>channel.length())
+			choice = channel.length();
+		myBuffer[0] = myBuffer[1] = myBuffer[2] = '0';
+		myBuffer[3] = '6';
+
+
+		for (uint8_t x=0; x<choice; x++){//need error checking on input eventually, assuming it is <=32 here
+		   	myBuffer[x+4] = channel[x];
+		}   
+		if (sendto(mySocket, myBuffer, joinSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
+			perror("requesting who in channel (from client)");
+		std::cerr << "Success.\n";
+	
+
+
+
+	}
+
+
 	client(){
 		mySocket=0;
 		//sockaddr_in remoteAddress;

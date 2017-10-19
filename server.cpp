@@ -58,7 +58,7 @@ class server{
 				     			newUser.myUserName = userName;
 				     			newUser.myIPAddress = remoteIPAddress;
 				     			newUser.myChannels.push_back("Common");
-				     			newUser.myCurrentChannel = "Common";
+				     			newUser.myActiveChannel = "Common";
 				     			currentUsers.push_back(newUser);
 				     		}
 				     		std::cerr << "currentUsers size: " << currentUsers.size() << std::endl;
@@ -118,7 +118,7 @@ class server{
 			     			}
 			     			if (!channelFound){
 			     				channelList.push_back(channelToJoin);
-			     				currentUsers[userSlot].myCurrentChannel = channelToJoin;
+			     				currentUsers[userSlot].myActiveChannel = channelToJoin;
 			     			}
 		     				
 
@@ -130,12 +130,9 @@ class server{
 
 					}
 					else if (std::atoi(identifier.c_str()) == 5){//list of channels
-						std::string channelString="";
-						//std::cerr << "channel list request: "<< channelString <<std::endl;	
-			     		union intOrBytes channelListSize;
+						union intOrBytes channelListSize;
 			     		channelListSize.integer = channelList.size();
 						uint64_t thisBufSize = 4+4+32*channelListSize.integer;
-						
 						unsigned char channelsBuffer[thisBufSize];//should be 4 + 4+32 * numchannels...? need to fix this list per spec
 						for (uint64_t x=0; x<thisBufSize; x++){
 		     		   		channelsBuffer[x]='\0';
@@ -174,7 +171,7 @@ class server{
 
 					//show who is online
 					for (std::vector<userInfo>::iterator iter = currentUsers.begin(); iter != currentUsers.end(); ++iter) {
-		     		   std::cerr << (*iter).myUserName << "is Online in channel "<< iter->myCurrentChannel << " at IP " << iter->myIPAddress<<std::endl;
+		     		   std::cerr << (*iter).myUserName << "is Online in channel "<< iter->myActiveChannel << " at IP " << iter->myIPAddress<<std::endl;
 		     		}
 		     		if (currentUsers.size()==0)
 		     			std::cerr << "No One is Currently Online!" << std::endl;

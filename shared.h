@@ -2,7 +2,7 @@ struct userInfo
 {
 	std::string myUserName;
 	std::vector<std::string> myChannels;
-	std::string myCurrentChannel;
+	std::string myActiveChannel;
 	std::string myIPAddress;
 };
 
