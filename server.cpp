@@ -26,7 +26,21 @@ class server{
 		int mySocket;
 		std::vector<userInfo> currentUsers;
 		std::vector<std::string> channelList;
+		uint32_t findUserSlot(std::string remoteIPAddress){
+			uint32_t userSlot=-1;
+			uint32_t size=currentUsers.size();
 			
+			for (uint32_t x=0; x <size; x++){
+				if (remoteIPAddress.compare(currentUsers[x].myIPAddress) == 0){
+						userSlot = x;
+						x = size;//end loop hack
+				}
+
+			}
+			return userSlot;
+		     			
+		}
+
 		void serve(){
 			while(1) {
 				unsigned char myBuffer[BUFFERLENGTH];
@@ -36,10 +50,11 @@ class server{
 				bytesRecvd = recvfrom(mySocket, myBuffer, BUFFERLENGTH, 0, (struct sockaddr *)&remoteAddress, &addressSize);
 				printf("received %d bytes\n", bytesRecvd);
 				if (bytesRecvd >= 4) {
-					std::string identifier(&myBuffer[0],&myBuffer[4]);//need to change to read until /r/l or something
+					std::string id(&myBuffer[0],&myBuffer[4]);//need to change to read until /r/l or something
+					uint8_t identifier = std::atoi(id.c_str());
 					std::string remoteIPAddress=std::string (std::string (inet_ntoa(remoteAddress.sin_addr)));
 					socklen_t remoteIPAddressSize = sizeof(remoteAddress);
-					if (std::atoi(identifier.c_str()) == 0){//login
+					if (identifier == 0){//login
 						if (bytesRecvd==36){//valid login packet size
 							std::string userName(&myBuffer[4],&myBuffer[35]);
 							std::cerr << "login request received from "<< "userName: " <<userName << std::endl;
@@ -64,7 +79,7 @@ class server{
 				     		std::cerr << "currentUsers size: " << currentUsers.size() << std::endl;
 				     	}
 					}
-					else if (std::atoi(identifier.c_str()) == 1){//logout
+					else if (identifier == 1){//logout
 						if (currentUsers.size()>0) {
 							uint32_t size =  currentUsers.size();
 							for (uint32_t x=0; x <size; x++){
@@ -78,24 +93,16 @@ class server{
 			     			}
 			     		}
 					}
-					else if (std::atoi(identifier.c_str()) == 2){//join request
+					else if (identifier == 2){//join request
 						std::string channelNameBuffer(&myBuffer[4],&myBuffer[36]);
 						std::string channelToJoin="";
 						std::string userName;
 						uint32_t size =  currentUsers.size();
-						bool userFound = false;
-						uint32_t userSlot = 0;
-						for (uint32_t x=0; x <size; x++){
-							if (remoteIPAddress.compare(currentUsers[x].myIPAddress) == 0){
-		     					userFound=true;
-		     					userName = currentUsers[x].myUserName;
-		     					userSlot = x;
-		     					x = size;//end loop hack
-		     				}
+						uint32_t userSlot = findUserSlot(remoteIPAddress);
 
-		     			}
-		     			if (userFound){
-		     				
+		     			if (userSlot>=0){//user found
+		     				userName = currentUsers[userSlot].myUserName;
+		     					
 		     				uint8_t end=0;
 			     			for (uint8_t x=4;x<36;x++){
 			     				if (channelNameBuffer[x]=='\0'){
@@ -116,11 +123,11 @@ class server{
 			     				}
 
 			     			}
-			     			if (!channelFound){
+			     			if (!channelFound){//if channel not exist, add it
 			     				channelList.push_back(channelToJoin);
-			     				currentUsers[userSlot].myActiveChannel = channelToJoin;
+			     				
 			     			}
-		     				
+		     				currentUsers[userSlot].myActiveChannel = channelToJoin;
 
 
 		     			}
@@ -129,31 +136,56 @@ class server{
 						
 
 					}
-					else if (std::atoi(identifier.c_str()) == 5){//list of channels
+					else if (identifier == 3){//leave request
+						std::string channelNameBuffer(&myBuffer[4],&myBuffer[36]);
+						std::string channelToJoin="";
+						std::string userName;
+						uint32_t size =  currentUsers.size();
+						uint32_t userSlot = findUserSlot(remoteIPAddress);
+
+		     			if (userSlot>=0){//user found
+		     				uint8_t end=0;
+			     			for (uint8_t x=4;x<36;x++){
+			     				if (channelNameBuffer[x]=='\0'){
+			     					end = x;
+			     					x=36;
+			     				}
+			     			}
+			     			if (end>0)
+			     				channelToJoin = channelNameBuffer.substr(0,36-end);
+			     			std::cerr << "join request received from "<< "userName: " <<userName << "for channel " << channelToJoin << std::endl;
+							bool channelFound=false;
+							for (uint32_t x=0; x <size; x++){
+								if (channelToJoin.compare(channelList[x]) == 0){
+			     					channelFound=true;
+			     					x = size;//end loop hack
+			     				}
+			     			}
+			     			if (!channelFound){//if channel not exist, add it
+			     				channelList.push_back(channelToJoin);
+			     			}
+		     				currentUsers[userSlot].myActiveChannel = channelToJoin;
+		     			}
+
+						
+						
+
+					}
+					else if (identifier == 5){//list of channels
 						union intOrBytes channelListSize;
 			     		channelListSize.integer = channelList.size();
 						uint64_t thisBufSize = 4+4+32*channelListSize.integer;
 						unsigned char channelsBuffer[thisBufSize];//should be 4 + 4+32 * numchannels...? need to fix this list per spec
-						for (uint64_t x=0; x<thisBufSize; x++){
-		     		   		channelsBuffer[x]='\0';
-		     		   	}   
-
-
+						initBuffer(channelsBuffer,thisBufSize);
 
 						std::cerr << "list requested, number of channels: " <<channelListSize.integer<<std::endl;
-						//std::string output = "";
-						//strcpy(channelsBuffer,"0001");
 						channelsBuffer[0] = channelsBuffer[1] = channelsBuffer[2] = '0';
 						channelsBuffer[3] = '1';
-						
-
 						channelsBuffer[4] = channelListSize.byte[0];
 						channelsBuffer[5] = channelListSize.byte[1];
 						channelsBuffer[6] = channelListSize.byte[2];
 						channelsBuffer[7] = channelListSize.byte[3];
 						uint8_t position = 8;
-						
-						 						
 						for (std::vector<std::string>::iterator iter = channelList.begin(); iter != channelList.end(); ++iter) {
 							uint8_t x=0;		 
 							std::string theCopy = *iter;
@@ -161,7 +193,6 @@ class server{
 			     		    	channelsBuffer[position+x] = theCopy[x];
 			     		    }   
 			     		    position+=32;
-			     		
 			     		}
 						if (sendto(mySocket, channelsBuffer, thisBufSize, 0, (struct sockaddr *)&remoteAddress, remoteIPAddressSize)==-1)
 							perror("server sending channel list error");
@@ -203,15 +234,10 @@ class server{
 			else
 				serve();
 		}
-			
-		
-
 };
-
 
 int main (int argc, char *argv[]){
 	server* myServer = new server();
 	delete(myServer);
 	return 0;
 }
-
