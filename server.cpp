@@ -21,7 +21,7 @@ class server{
 	private:
 		struct sockaddr_in myAddress;
 		struct sockaddr_in remoteAddress;
-		int bytesRecvd;
+		uint32_t bytesRecvd;
 		socklen_t addressSize;
 		int mySocket;
 		std::vector<userInfo> currentUsers;
@@ -66,8 +66,8 @@ class server{
 					}
 					else if (std::atoi(identifier.c_str()) == 1){//logout
 						if (currentUsers.size()>0) {
-							int size = (int) currentUsers.size();
-							for (int x=0; x <size; x++){
+							uint32_t size =  currentUsers.size();
+							for (uint32_t x=0; x <size; x++){
 								if (remoteIPAddress.compare(currentUsers[x].myIPAddress) == 0){
 			     					std::cerr << "Logging out " <<currentUsers[x].myUserName << std::endl;
 			     					currentUsers.erase(currentUsers.begin()+x);
@@ -82,10 +82,10 @@ class server{
 						std::string channelNameBuffer(&myBuffer[4],&myBuffer[36]);
 						std::string channelToJoin="";
 						std::string userName;
-						int size = (int) currentUsers.size();
+						uint32_t size =  currentUsers.size();
 						bool userFound = false;
-						int userSlot = 0;
-						for (int x=0; x <size; x++){
+						uint32_t userSlot = 0;
+						for (uint32_t x=0; x <size; x++){
 							if (remoteIPAddress.compare(currentUsers[x].myIPAddress) == 0){
 		     					userFound=true;
 		     					userName = currentUsers[x].myUserName;
@@ -96,8 +96,8 @@ class server{
 		     			}
 		     			if (userFound){
 		     				
-		     				int end=0;
-			     			for (int x=4;x<36;x++){
+		     				uint8_t end=0;
+			     			for (uint8_t x=4;x<36;x++){
 			     				if (channelNameBuffer[x]=='\0'){
 			     					end = x;
 			     					x=36;
@@ -108,7 +108,7 @@ class server{
 
 			     			std::cerr << "join request received from "<< "userName: " <<userName << "for channel " << channelToJoin << std::endl;
 							bool channelFound=false;
-							for (int x=0; x <size; x++){
+							for (uint32_t x=0; x <size; x++){
 							
 								if (channelToJoin.compare(channelList[x]) == 0){
 			     					channelFound=true;
@@ -134,17 +134,17 @@ class server{
 						//std::cerr << "channel list request: "<< channelString <<std::endl;	
 			     		union intOrBytes channelListSize;
 			     		channelListSize.integer = channelList.size();
-						int thisBufSize = 4+4+32*channelListSize.integer;
+						uint64_t thisBufSize = 4+4+32*channelListSize.integer;
 						
 						unsigned char channelsBuffer[thisBufSize];//should be 4 + 4+32 * numchannels...? need to fix this list per spec
-						for (int x=0; x<thisBufSize; x++){
+						for (uint64_t x=0; x<thisBufSize; x++){
 		     		   		channelsBuffer[x]='\0';
 		     		   	}   
 
 
 
 						std::cerr << "list requested, number of channels: " <<channelListSize.integer<<std::endl;
-						std::string output = "";
+						//std::string output = "";
 						//strcpy(channelsBuffer,"0001");
 						channelsBuffer[0] = channelsBuffer[1] = channelsBuffer[2] = '0';
 						channelsBuffer[3] = '1';
@@ -154,11 +154,11 @@ class server{
 						channelsBuffer[5] = channelListSize.byte[1];
 						channelsBuffer[6] = channelListSize.byte[2];
 						channelsBuffer[7] = channelListSize.byte[3];
-						int position = 8;
+						uint8_t position = 8;
 						
 						 						
 						for (std::vector<std::string>::iterator iter = channelList.begin(); iter != channelList.end(); ++iter) {
-							unsigned int x=0;		 
+							uint8_t x=0;		 
 							std::string theCopy = *iter;
 			     		    for (x=0; x<theCopy.length(); x++){//need error checking on input eventually, assuming it is <=32 here
 			     		    	channelsBuffer[position+x] = theCopy[x];
@@ -214,9 +214,6 @@ class server{
 
 int main (int argc, char *argv[]){
 	server* myServer = new server();
-	
-	
-	
 	delete(myServer);
 	return 0;
 }

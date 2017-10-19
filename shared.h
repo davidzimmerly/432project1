@@ -8,12 +8,12 @@ struct userInfo
 
 union intOrBytes
 {
-	unsigned int integer;
+	uint32_t integer;
 	unsigned char byte[4];
 };
 
 void initBuffer(unsigned char* buf, unsigned int length){
-	for (unsigned int x=0; x<length ; x++){
+	for (uint32_t x=0; x<length ; x++){
 		buf[x]='\0';
 	}
 }
