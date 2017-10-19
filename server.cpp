@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>	/* needed for os x*/
-#include<cstdlib>
+#include <cstdlib>
+#include <cstdint>
 #include <string.h>	/* strlen */
 #include <netdb.h>      /* gethostbyname() */
 #include <sys/socket.h>
@@ -25,20 +26,12 @@ class server{
 		int mySocket;
 		std::vector<userInfo> currentUsers;
 		std::vector<std::string> channelList;
-		void nullfill(char* input, int size){
-			for (int x=0;x<size;x++){
-					input[x] ='\0';
-			}	
-			
-		}
 			
 		void serve(){
 			while(1) {
 				unsigned char myBuffer[BUFFERLENGTH];
-				for (int x=0;x<BUFFERLENGTH;x++){
-					myBuffer[x] ='\0';
-				}	
-			
+				initBuffer(myBuffer,BUFFERLENGTH);
+				
 				printf("waiting on port %d\n", THEPORT);
 				bytesRecvd = recvfrom(mySocket, myBuffer, BUFFERLENGTH, 0, (struct sockaddr *)&remoteAddress, &addressSize);
 				printf("received %d bytes\n", bytesRecvd);
@@ -113,12 +106,7 @@ class server{
 			     			if (end>0)
 			     				channelToJoin = channelNameBuffer.substr(0,36-end);
 
-
-			     			std::cerr << "channelNameBuffer " << channelNameBuffer << std::endl;		
-			     			
-
-		     				std::cerr << "join request received from "<< "userName: " <<userName << std::endl;		
-		     				std::cerr << "for channel " << channelToJoin << std::endl;		
+			     			std::cerr << "join request received from "<< "userName: " <<userName << "for channel " << channelToJoin << std::endl;
 							bool channelFound=false;
 							for (int x=0; x <size; x++){
 							
@@ -143,21 +131,25 @@ class server{
 					}
 					else if (std::atoi(identifier.c_str()) == 5){//list of channels
 						std::string channelString="";
-						std::cerr << "channel list request: "<< channelString <<std::endl;	
+						//std::cerr << "channel list request: "<< channelString <<std::endl;	
 			     		union intOrBytes channelListSize;
 			     		channelListSize.integer = channelList.size();
 						int thisBufSize = 4+4+32*channelListSize.integer;
 						
-						char channelsBuffer[thisBufSize];//should be 4 + 4+32 * numchannels...? need to fix this list per spec
+						unsigned char channelsBuffer[thisBufSize];//should be 4 + 4+32 * numchannels...? need to fix this list per spec
 						for (int x=0; x<thisBufSize; x++){
 		     		   		channelsBuffer[x]='\0';
 		     		   	}   
 
 
 
-						std::cerr << "number of channels: " <<channelListSize.integer<<std::endl;
+						std::cerr << "list requested, number of channels: " <<channelListSize.integer<<std::endl;
 						std::string output = "";
-						strcpy(channelsBuffer,"0001");
+						//strcpy(channelsBuffer,"0001");
+						channelsBuffer[0] = channelsBuffer[1] = channelsBuffer[2] = '0';
+						channelsBuffer[3] = '1';
+						
+
 						channelsBuffer[4] = channelListSize.byte[0];
 						channelsBuffer[5] = channelListSize.byte[1];
 						channelsBuffer[6] = channelListSize.byte[2];

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>	/* needed for os x*/
-#include<cstdlib>
+#include <cstdlib>
+#include <cstdint>
 #include <string.h>	/* strlen */
 #include <netdb.h>      /* gethostbyname() */
 #include <sys/socket.h>
@@ -26,18 +27,23 @@ class client{
 		socklen_t addressSize;
 		std::string userName;
 		std::string remoteAddressString;
-		int bytesRecvd;
-	
+		uint32_t bytesRecvd;
+		const uint8_t loginSize = 36;
+		const uint8_t logoutSize = 4;
+		const uint8_t joinSize = 36;
+		const uint8_t requestChannelSize = 4;
+
 	public:
 	void login(){
 		std::cerr << "Logging In " << userName << " ..." ;
-		int loginSize =36;
-		char myBuffer[loginSize];
-		strcpy(myBuffer,"0000");
-		unsigned int choice = loginSize;
+		unsigned char myBuffer[loginSize];
+		//strcpy(myBuffer,"0000");
+		myBuffer[0] = myBuffer[1] = myBuffer[2] = myBuffer[3] = '0';
+
+		uint8_t choice = loginSize;
 		if (choice>userName.length())
 			choice = userName.length();
- 		for (unsigned int x=0; x<choice; x++){//need error checking on input eventually, assuming it is <=32 here
+ 		for (uint8_t x=0; x<choice; x++){//need error checking on input eventually, assuming it is <=32 here
 		   	myBuffer[x+4] = userName[x];
 		}   
 		if (sendto(mySocket, myBuffer, loginSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
@@ -46,25 +52,31 @@ class client{
 	}
 	void logout(){
 		std::cerr << "Logging Out " << userName << " ..." ;
-		char myBuffer[4];
-		sprintf(myBuffer, "0001");
-		if (sendto(mySocket, myBuffer, strlen(myBuffer), 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
+		unsigned char myBuffer[logoutSize];
+		//sprintf(myBuffer, "0001");
+		myBuffer[0] = myBuffer[1] = myBuffer[2] = '0';
+		myBuffer[3] = '1';
+
+
+
+		if (sendto(mySocket, myBuffer, logoutSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
 			perror("sendto");
 		std::cerr << "Success.\n";
 		close(mySocket);
 	}
 
 	void requestChannels(){
-		char myBuffer[4];
-		char replyBuffer[BUFFERLENGTH];
-		for (int x=0;x<BUFFERLENGTH;x++){
-			replyBuffer[x] ='\0';
-		}
-		sprintf(myBuffer, "0005");
-		if (sendto(mySocket, myBuffer, strlen(myBuffer), 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
+		unsigned char myBuffer[requestChannelSize];
+		unsigned char replyBuffer[BUFFERLENGTH];
+		initBuffer(replyBuffer,BUFFERLENGTH);
+		//sprintf(myBuffer, "0005");
+		myBuffer[0] = myBuffer[1] = myBuffer[2] = '0';
+		myBuffer[3] = '5';
+
+		if (sendto(mySocket, myBuffer, requestChannelSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
 			perror("sendto");
 		//printf("waiting for server reply on port %d\n", THEPORT);
-		int bytesRecvd = recvfrom(mySocket, replyBuffer, BUFFERLENGTH, 0, (struct sockaddr *)&remoteAddress, &addressSize);
+		uint32_t bytesRecvd = recvfrom(mySocket, replyBuffer, BUFFERLENGTH, 0, (struct sockaddr *)&remoteAddress, &addressSize);
 		//printf("(channel request) client received %d bytes\n", bytesRecvd);
 		if (bytesRecvd >= 36) {
 			std::string identifier(&replyBuffer[0],&replyBuffer[4]);
@@ -76,14 +88,14 @@ class client{
 				totalChannels.byte[2] = replyBuffer[6];
 				totalChannels.byte[3] = replyBuffer[7];
 				std::vector<std::string> listOfChannels;
-				int position=8;
-				for (unsigned int x = 0; x <= totalChannels.integer; x++){
+				uint8_t position=8;
+				for (uint32_t x = 0; x <= totalChannels.integer; x++){
 					std::string channel(&replyBuffer[position],&replyBuffer[position+32]);
 					listOfChannels.push_back(channel);
 					position+=32;
 				}
 				std::cerr << "List of received Channels: ";
-				unsigned int count=1;
+				uint32_t count=1;
 				for (std::vector<std::string>::iterator iter = listOfChannels.begin(); iter != listOfChannels.end(); ++iter) {
 			    	std::cerr << *iter;
 			    	if (count++<totalChannels.integer)
@@ -97,16 +109,18 @@ class client{
 		
 	}
 	void join(std::string channel){
-		int joinSize = 36;
 		std::cerr << "Joining channel " << channel << " ..." ;
-
-		char myBuffer[joinSize];
+		unsigned char myBuffer[joinSize];
 		initBuffer(myBuffer,joinSize);
-		unsigned int choice = joinSize;
+		uint8_t choice = joinSize;
 		if (choice>channel.length())
 			choice = channel.length();
-		strcpy(myBuffer,"0002");
-		for (unsigned int x=0; x<choice; x++){//need error checking on input eventually, assuming it is <=32 here
+		//strcpy(myBuffer,"0002");
+		myBuffer[0] = myBuffer[1] = myBuffer[2] = '0';
+		myBuffer[3] = '2';
+
+
+		for (uint8_t x=0; x<choice; x++){//need error checking on input eventually, assuming it is <=32 here
 		   	myBuffer[x+4] = channel[x];
 		}   
 		if (sendto(mySocket, myBuffer, joinSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
