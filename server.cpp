@@ -32,8 +32,8 @@ class server{
 			
 			for (uint32_t x=0; x <size; x++){
 				if (remoteIPAddress.compare(currentUsers[x].myIPAddress) == 0){
-						userSlot = x;
-						x = size;//end loop hack
+					userSlot = x;
+					break;
 				}
 
 			}
@@ -46,9 +46,9 @@ class server{
 				unsigned char myBuffer[BUFFERLENGTH];
 				initBuffer(myBuffer,BUFFERLENGTH);
 				
-				printf("waiting on port %d\n", THEPORT);
+				//printf("waiting on port %d\n", THEPORT);
 				bytesRecvd = recvfrom(mySocket, myBuffer, BUFFERLENGTH, 0, (struct sockaddr *)&remoteAddress, &addressSize);
-				printf("received %d bytes\n", bytesRecvd);
+				//printf("received %d bytes\n", bytesRecvd);
 				if (bytesRecvd >= 4) {
 					std::string id(&myBuffer[0],&myBuffer[4]);//need to change to read until /r/l or something
 					uint8_t identifier = std::atoi(id.c_str());
@@ -57,7 +57,7 @@ class server{
 					if (identifier == 0){//login
 						if (bytesRecvd==36){//valid login packet size
 							std::string userName(&myBuffer[4],&myBuffer[35]);
-							std::cerr << "login request received from "<< "userName: " <<userName << std::endl;
+							//std::cerr << "login request received from "<< "userName: " <<userName << std::endl;
 							bool addUser = true;
 							if (currentUsers.size()>0) {
 								for (std::vector<userInfo>::iterator iter = currentUsers.begin(); iter != currentUsers.end(); ++iter) {
@@ -68,7 +68,7 @@ class server{
 				     			}
 				     		}
 				     		if (addUser){
-				     			std::cerr << "adding user" << std::endl;
+				     			//std::cerr << "adding user" << std::endl;
 				     			userInfo newUser;
 				     			newUser.myUserName = userName;
 				     			newUser.myIPAddress = remoteIPAddress;
@@ -76,24 +76,23 @@ class server{
 				     			newUser.myActiveChannel = "Common";
 				     			currentUsers.push_back(newUser);
 				     		}
-				     		std::cerr << "currentUsers size: " << currentUsers.size() << std::endl;
+				     		//std::cerr << "currentUsers size: " << currentUsers.size() << std::endl;
 				     	}
 					}
 					else if (identifier == 1){//logout
 						if (currentUsers.size()>0) {
-							uint32_t size =  currentUsers.size();
-							for (uint32_t x=0; x <size; x++){
+							int size =  currentUsers.size();
+							for (int x=0; x <size; x++){
 								if (remoteIPAddress.compare(currentUsers[x].myIPAddress) == 0){
-			     					std::cerr << "Logging out " <<currentUsers[x].myUserName << std::endl;
+			     					//std::cerr << "Logging out " <<currentUsers[x].myUserName << std::endl;
 			     					currentUsers.erase(currentUsers.begin()+x);
+			     					//currentUsers.erase(x,x);
 			     					x = size;//end loop hack
-
 			     				}
-
 			     			}
 			     		}
 					}
-					else if (identifier == 2){//join request
+					else if (identifier == 2 && bytesRecvd == joinSize){//join request
 						std::string channelNameBuffer(&myBuffer[4],&myBuffer[36]);
 						std::string channelToJoin="";
 						std::string userName;
@@ -107,40 +106,49 @@ class server{
 			     			for (uint8_t x=4;x<36;x++){
 			     				if (channelNameBuffer[x]=='\0'){
 			     					end = x;
-			     					x=36;
+			     					break;
 			     				}
 			     			}
 			     			if (end>0)
-			     				channelToJoin = channelNameBuffer.substr(0,36-end);
+			     				channelToJoin = channelNameBuffer.substr(0,end);
 
-			     			std::cerr << "join request received from "<< "userName: " <<userName << "for channel " << channelToJoin << std::endl;
+			     			//std::cerr << "join request received from "<< "userName: " <<userName << "for channel " << channelNameBuffer << "."<<std::endl;
 							bool channelFound=false;
-							for (uint32_t x=0; x <size; x++){
-							
+							for (uint32_t x=0; x <channelList.size(); x++){
+								//std::cerr << "we compare channels : "<< channelToJoin << " with " << channelList[x]<<":"<<std::endl;
 								if (channelToJoin.compare(channelList[x]) == 0){
+			     					//std::cerr << "Found channel "<< channelToJoin<< " already here: "<<channelList[x]<<"."<<std::endl;
 			     					channelFound=true;
-			     					x = size;//end loop hack
+			     					break;
 			     				}
-
-			     			}
+							}
 			     			if (!channelFound){//if channel not exist, add it
 			     				channelList.push_back(channelToJoin);
-			     				
+			     				std::cerr << "adding a new channel to server list: "<<channelToJoin<<std::endl;
 			     			}
+
+			     			channelFound=false;
+			     			//now add to user info
+			     			size = currentUsers[userSlot].myChannels.size();
+			     			for (uint32_t x=0; x <size; x++){
+								if (channelToJoin.compare(currentUsers[userSlot].myChannels[x]) == 0){
+			     					channelFound=true;
+			     					break;
+			     				}
+							}
+							if (!channelFound){//if channel not exist in user info, add it
+			     				currentUsers[userSlot].myChannels.push_back(channelToJoin);
+			     			}
+			     			
+			     			
+			     			
 		     				currentUsers[userSlot].myActiveChannel = channelToJoin;
-
-
-		     			}
-
-						
-						
-
+						}
 					}
 					else if (identifier == 3){//leave request
 						std::string channelNameBuffer(&myBuffer[4],&myBuffer[36]);
-						std::string channelToJoin="";
+						std::string channelToLeave="";
 						std::string userName;
-						uint32_t size =  currentUsers.size();
 						uint32_t userSlot = findUserSlot(remoteIPAddress);
 
 		     			if (userSlot>=0){//user found
@@ -152,24 +160,21 @@ class server{
 			     				}
 			     			}
 			     			if (end>0)
-			     				channelToJoin = channelNameBuffer.substr(0,36-end);
-			     			std::cerr << "join request received from "<< "userName: " <<userName << "for channel " << channelToJoin << std::endl;
-							bool channelFound=false;
-							for (uint32_t x=0; x <size; x++){
-								if (channelToJoin.compare(channelList[x]) == 0){
-			     					channelFound=true;
-			     					x = size;//end loop hack
+			     				channelToLeave = channelNameBuffer.substr(0,end);
+			     			std::cerr << "leave request received from "<< "userName: " <<userName << "for channel " << channelToLeave << std::endl;
+
+
+
+							for (uint32_t x=0; x <currentUsers[userSlot].myChannels.size(); x++){
+								if (channelToLeave.compare(currentUsers[userSlot].myChannels[x]) == 0){
+			     					currentUsers[userSlot].myChannels.erase(currentUsers[userSlot].myChannels.begin() + x);
+			     					std::cerr << "successfully left channel "<<channelToLeave<<std::endl;
+			     					break;
 			     				}
 			     			}
-			     			if (!channelFound){//if channel not exist, add it
-			     				channelList.push_back(channelToJoin);
-			     			}
-		     				currentUsers[userSlot].myActiveChannel = channelToJoin;
+		     				if (currentUsers[userSlot].myActiveChannel == channelToLeave)
+		     					currentUsers[userSlot].myActiveChannel = "Common";
 		     			}
-
-						
-						
-
 					}
 					else if (identifier == 5){//list of channels
 						union intOrBytes channelListSize;
@@ -177,7 +182,6 @@ class server{
 						uint64_t thisBufSize = 4+4+32*channelListSize.integer;
 						unsigned char channelsBuffer[thisBufSize];//should be 4 + 4+32 * numchannels...? need to fix this list per spec
 						initBuffer(channelsBuffer,thisBufSize);
-
 						std::cerr << "list requested, number of channels: " <<channelListSize.integer<<std::endl;
 						channelsBuffer[0] = channelsBuffer[1] = channelsBuffer[2] = '0';
 						channelsBuffer[3] = '1';
@@ -203,6 +207,14 @@ class server{
 					//show who is online
 					for (std::vector<userInfo>::iterator iter = currentUsers.begin(); iter != currentUsers.end(); ++iter) {
 		     		   std::cerr << (*iter).myUserName << "is Online in channel "<< iter->myActiveChannel << " at IP " << iter->myIPAddress<<std::endl;
+		     		   std::cerr << (*iter).myUserName << "'s channels: ";
+		     		   for (std::vector<std::string>::iterator iter2 = (*iter).myChannels.begin(); iter2 != (*iter).myChannels.end(); ++iter2) {
+		     		   		std::cerr << (*iter2) <<", ";
+		     		   		
+		     		   }
+		     		   std::cerr<<std::endl;
+		     		
+		     		
 		     		}
 		     		if (currentUsers.size()==0)
 		     			std::cerr << "No One is Currently Online!" << std::endl;

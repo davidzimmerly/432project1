@@ -28,11 +28,7 @@ class client{
 		std::string userName;
 		std::string remoteAddressString;
 		uint32_t bytesRecvd;
-		const uint8_t loginSize = 36;
-		const uint8_t logoutSize = 4;
-		const uint8_t joinSize = 36;
-		const uint8_t requestChannelSize = 4;
-
+		
 	public:
 	void login(){
 		std::cerr << "Logging In " << userName << " ..." ;
@@ -109,7 +105,9 @@ class client{
 		
 	}
 	void join(std::string channel){
-		std::cerr << "Joining channel " << channel << " ..." ;
+		if (channel.length()>31) //format input if too big
+			channel = channel.substr(0,31);
+		//std::cerr << "Joining channel " << channel << " ..." ;
 		unsigned char myBuffer[joinSize];
 		initBuffer(myBuffer,joinSize);
 		uint8_t choice = joinSize;
@@ -119,19 +117,17 @@ class client{
 		myBuffer[0] = myBuffer[1] = myBuffer[2] = '0';
 		myBuffer[3] = '2';
 
-
-		for (uint8_t x=0; x<choice; x++){//need error checking on input eventually, assuming it is <=32 here
+		for (uint8_t x=0; x<choice; x++){
 		   	myBuffer[x+4] = channel[x];
 		}   
 		if (sendto(mySocket, myBuffer, joinSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
 			perror("requesting to join a channel (from client)");
-		std::cerr << "Success.\n";
-	
-
-
-
+		//std::cerr << "Success.\n";
 	}
 	void leave(std::string channel){
+		if (channel.length()>31) //format input if too big
+			channel = channel.substr(0,31);
+
 		std::cerr << "Leaving channel " << channel << " ..." ;
 		unsigned char myBuffer[joinSize];
 		initBuffer(myBuffer,joinSize);
@@ -142,7 +138,7 @@ class client{
 		myBuffer[3] = '3';
 
 
-		for (uint8_t x=0; x<choice; x++){//need error checking on input eventually, assuming it is <=32 here
+		for (uint8_t x=0; x<choice; x++){
 		   	myBuffer[x+4] = channel[x];
 		}   
 		if (sendto(mySocket, myBuffer, joinSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
@@ -214,12 +210,25 @@ class client{
 int main (int argc, char *argv[]){
 	client* thisClient = new client("Bobby Joeleine Smith4357093487509384750938475094387509348750439875430987435","127.0.0.1");
 	thisClient->login();
-	thisClient->requestChannels();
+	//thisClient->requestChannels();
 	thisClient->join("newChannel");
-	thisClient->join("newChannel3jkkjkjkkjkjkjkjjkjkkjkjkj");
-	thisClient->join("newChannelasfdkjhlkadf");
+	thisClient->join("newChannel");
+
+	thisClient->leave("newChannel");
+	
+	//thisClient->join("anotherChannel");
+	//thisClient->join("newChannel");
+	thisClient->join("newChannelasfdkjh122342adskfj1111112");//ERRORS maybe client side
+	thisClient->leave("newChannelasfdkjh122342adskfj1111112");//ERRORS maybe client side
+
+	/*	thisClient->join("newChannelasfdkjhlkadf");
 	thisClient->join("newChannel32432423423");
-	thisClient->requestChannels();
+	thisClient->join("newChannel");
+	thisClient->join("newChannel");
+	thisClient->join("newChannel");
+	thisClient->join("newChannel");*/
+
+	//thisClient->requestChannels();
 	thisClient->logout();
 	
 	

@@ -1,3 +1,9 @@
+const uint8_t loginSize = 36;
+const uint8_t logoutSize = 4;
+const uint8_t joinSize = 36;
+const uint8_t requestChannelSize = 4;
+
+
 struct userInfo
 {
 	std::string myUserName;
