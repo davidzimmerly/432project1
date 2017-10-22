@@ -13,6 +13,7 @@
 #include <sstream>
 #include <vector>
 #include "shared.h"
+
 #define BUFFERLENGTH  1024
 #define THEPORT  3264
 
@@ -43,7 +44,8 @@ class server{
 
 		void serve(){
 			while(1) {
-				unsigned char myBuffer[BUFFERLENGTH];
+				bytesRecvd = 0;
+				char myBuffer[BUFFERLENGTH];
 				initBuffer(myBuffer,BUFFERLENGTH);
 				
 				//printf("waiting on port %d\n", THEPORT);
@@ -56,8 +58,10 @@ class server{
 					socklen_t remoteIPAddressSize = sizeof(remoteAddress);
 					if (identifier == 0){//login
 						if (bytesRecvd==36){//valid login packet size
-							std::string userName(&myBuffer[4],&myBuffer[35]);
-							//std::cerr << "login request received from "<< "userName: " <<userName << std::endl;
+							uint8_t end = findStringEnd(myBuffer,4,36);
+
+							std::string userName(&myBuffer[4],&myBuffer[end]);
+							std::cerr << "login request received from "<< "userName: " <<userName << std::endl;
 							bool addUser = true;
 							if (currentUsers.size()>0) {
 								for (std::vector<userInfo>::iterator iter = currentUsers.begin(); iter != currentUsers.end(); ++iter) {
@@ -68,7 +72,7 @@ class server{
 				     			}
 				     		}
 				     		if (addUser){
-				     			//std::cerr << "adding user" << std::endl;
+				     			std::cerr << "adding user" << std::endl;
 				     			userInfo newUser;
 				     			newUser.myUserName = userName;
 				     			newUser.myIPAddress = remoteIPAddress;
@@ -79,7 +83,7 @@ class server{
 				     		//std::cerr << "currentUsers size: " << currentUsers.size() << std::endl;
 				     	}
 					}
-					else if (identifier == 1){//logout
+					else if (identifier == 1 && bytesRecvd==4){//logout
 						if (currentUsers.size()>0) {
 							int size =  currentUsers.size();
 							for (int x=0; x <size; x++){
@@ -152,6 +156,7 @@ class server{
 						uint32_t userSlot = findUserSlot(remoteIPAddress);
 
 		     			if (userSlot>=0){//user found
+		     				//channelToLeave = std::string(channelNameBuffer);
 		     				uint8_t end=0;
 			     			for (uint8_t x=4;x<36;x++){
 			     				if (channelNameBuffer[x]=='\0'){
@@ -161,7 +166,8 @@ class server{
 			     			}
 			     			if (end>0)
 			     				channelToLeave = channelNameBuffer.substr(0,end);
-			     			std::cerr << "leave request received from "<< "userName: " <<userName << "for channel " << channelToLeave << std::endl;
+			     			
+		     				std::cerr << "leave request received from "<< "userName: " <<userName << "for channel " << channelToLeave << std::endl;
 
 
 
@@ -176,11 +182,68 @@ class server{
 		     					currentUsers[userSlot].myActiveChannel = "Common";
 		     			}
 					}
+					else if (identifier == 4){//say request
+						std::string channelNameBuffer(&myBuffer[4],&myBuffer[36]);
+						std::string textFieldBuffer(&myBuffer[37],&myBuffer[99]);
+						std::string channelToAnnounce="";
+						std::string textField="";
+						std::string userName;
+						uint32_t userSlot = findUserSlot(remoteIPAddress);
+
+		     			if (userSlot>=0){//user found
+		     				uint8_t end=0;
+			     			for (uint8_t x=4;x<36;x++){
+			     				if (channelNameBuffer[x]=='\0'){
+			     					end = x;
+			     					x=36;
+			     				}
+			     			}
+			     			end=0;
+
+			     			for (uint8_t x=4;x<36;x++){
+			     				if (channelNameBuffer[x]=='\0'){
+			     					end = x;
+			     					x=36;
+			     				}
+			     			}
+			     			
+			     			if (end>0)
+			     				channelToAnnounce = channelNameBuffer.substr(0,end);
+			     			end=0;
+			     			for (uint8_t x=4;x<36;x++){
+			     				if (channelNameBuffer[x]=='\0'){
+			     					end = x;
+			     					x=36;
+			     				}
+			     			}
+			     			if (end>0)
+			     				textField = textFieldBuffer.substr(0,end);
+
+
+
+
+			     			std::cerr << "say request received from "<< "userName: " <<userName << "for channel " << channelToAnnounce << std::endl;
+			     			std::cerr <<"msg: "<< textField << std::endl;
+			     			//now need to find all users of this channel (maybe a function for this?)
+
+
+							/*for (uint32_t x=0; x <currentUsers[userSlot].myChannels.size(); x++){
+								if (channelToLeave.compare(currentUsers[userSlot].myChannels[x]) == 0){
+			     					currentUsers[userSlot].myChannels.erase(currentUsers[userSlot].myChannels.begin() + x);
+			     					std::cerr << "successfully left channel "<<channelToLeave<<std::endl;
+			     					break;
+			     				}
+			     			}
+		     				if (currentUsers[userSlot].myActiveChannel == channelToLeave)
+		     					currentUsers[userSlot].myActiveChannel = "Common";*/
+		     			}
+					}
+					
 					else if (identifier == 5){//list of channels
 						union intOrBytes channelListSize;
 			     		channelListSize.integer = channelList.size();
 						uint64_t thisBufSize = 4+4+32*channelListSize.integer;
-						unsigned char channelsBuffer[thisBufSize];//should be 4 + 4+32 * numchannels...? need to fix this list per spec
+						 char channelsBuffer[thisBufSize];//should be 4 + 4+32 * numchannels...? need to fix this list per spec
 						initBuffer(channelsBuffer,thisBufSize);
 						std::cerr << "list requested, number of channels: " <<channelListSize.integer<<std::endl;
 						channelsBuffer[0] = channelsBuffer[1] = channelsBuffer[2] = '0';
@@ -206,7 +269,7 @@ class server{
 
 					//show who is online
 					for (std::vector<userInfo>::iterator iter = currentUsers.begin(); iter != currentUsers.end(); ++iter) {
-		     		   std::cerr << (*iter).myUserName << "is Online in channel "<< iter->myActiveChannel << " at IP " << iter->myIPAddress<<std::endl;
+		     		   std::cerr << (*iter).myUserName << " is Online in channel "<< iter->myActiveChannel << " at IP " << iter->myIPAddress<<std::endl;
 		     		   std::cerr << (*iter).myUserName << "'s channels: ";
 		     		   for (std::vector<std::string>::iterator iter2 = (*iter).myChannels.begin(); iter2 != (*iter).myChannels.end(); ++iter2) {
 		     		   		std::cerr << (*iter2) <<", ";
