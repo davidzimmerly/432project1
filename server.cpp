@@ -92,7 +92,7 @@ class server{
 			     			}
 			     		}
 					}
-					else if (identifier == REQ_JOIN && bytesRecvd == joinLeaveSize){//join request
+					else if (identifier == REQ_JOIN && bytesRecvd == joinLeaveWhoSize){//join request
 						struct request_join* incoming_join_request;
 						incoming_join_request = (struct request_join*)myBuffer;
 						std::string channelToJoin = std::string(incoming_join_request->req_channel);
@@ -102,26 +102,20 @@ class server{
 		     				std::string userName = currentUsers[userSlot].myUserName;
 	     					bool channelFound=false;
 	     					int position =-1;
-							//std::cerr <<"channel to join: "<<channelToJoin<<std::endl;
 							for (unsigned int x=0; x <channelList.size(); x++){
 								if (channelToJoin.compare(channelList[x].myChannelName) == 0){
-			     					//std::cerr <<"wtf2"<<std::endl;
-								
 			     					channelFound=true;
 			     					position = x;
 			     					break;
 			     				}
 							}
 			     			if (!channelFound){//if channel not exist, add it
-			     				//std::cerr <<"wtf3"<<std::endl;
 			     				struct channelInfo newChannel;
 			     				newChannel.myChannelName = channelToJoin;
 			     				newChannel.myUsers.push_back(userName);
 			     				channelList.push_back(newChannel);
-			     				//std::cerr << "adding a new channel to server list: "<<channelToJoin<<std::endl;
 			     			}
 			     			else{//channel was found
-			     				//std::cerr <<"wtf4"<<std::endl;
 			     				bool userFound=false;//check if user exists in channel already
 								for (unsigned int x=0; x <channelList[position].myUsers.size(); x++){
 									if (userName.compare(channelList[position].myUsers[x]) == 0){
@@ -130,7 +124,6 @@ class server{
 				     				}
 								}
 								if (!userFound){
-							//		std::cerr <<"wtf5"<<std::endl;
 									channelList[position].myUsers.push_back(userName);
 								}
 		     				}
@@ -140,7 +133,7 @@ class server{
 		     			
 			     		}
 					}
-					else if (identifier == REQ_LEAVE && bytesRecvd == joinLeaveSize){//leave request
+					else if (identifier == REQ_LEAVE && bytesRecvd == joinLeaveWhoSize){//leave request
 						struct request_leave* incoming_leave_request;
 						incoming_leave_request = (struct request_leave*)myBuffer;
 						std::string channelToLeave = std::string(incoming_leave_request->req_channel);
@@ -150,7 +143,6 @@ class server{
 		     				for (unsigned int x=0; x <currentUsers[userSlot].myChannels.size(); x++){
 								if (channelToLeave.compare(currentUsers[userSlot].myChannels[x]) == 0){
 			     					currentUsers[userSlot].myChannels.erase(currentUsers[userSlot].myChannels.begin() + x);
-			     					//std::cerr << "successfully left channel "<<channelToLeave<<std::endl;
 			     					break;
 			     				}
 			     			}
@@ -161,8 +153,6 @@ class server{
 		     				int channelListNamePosition =-1;
 		     				for (unsigned int x=0; x <channelList.size(); x++){
 								if (channelToLeave.compare(channelList[x].myChannelName) == 0){
-			     			//		currentUsers[userSlot].myChannels.erase(currentUsers[userSlot].myChannels.begin() + x);
-			     			//		std::cerr << "1successfully left channel "<<channelToLeave<<std::endl;
 			     					masterChannelListPosition=x;
 			     					break;
 			     				}
@@ -170,8 +160,6 @@ class server{
 		     				if (masterChannelListPosition>-1){
 			     				for (unsigned int x=0; x <channelList[masterChannelListPosition].myUsers.size(); x++){
 									if (userName.compare(channelList[masterChannelListPosition].myUsers[x]) == 0){
-				     			//		currentUsers[userSlot].myChannels.erase(currentUsers[userSlot].myChannels.begin() + x);
-				     		//			std::cerr << "2successfully left channel "<<channelToLeave<<std::endl;
 				     					channelListNamePosition=x;
 				     					break;
 				     				}

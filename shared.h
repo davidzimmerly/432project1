@@ -1,6 +1,6 @@
 const int loginSize = 36;
 const int logoutSize = 4;
-const int joinLeaveSize = 36;
+const int joinLeaveWhoSize = 36;
 const int sayRequestSize = 100;
 const int requestChannelSize = 4;
 #include "duckchat.h"
@@ -21,6 +21,12 @@ struct channelInfo
 	
 };
 
+void truncate(std::string& input, unsigned int max){
+
+	if (input.length()>max) //format input if too big
+		input = input.substr(0,max);
+	
+}
 
 union intOrBytes
 {
