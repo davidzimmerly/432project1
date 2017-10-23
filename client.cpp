@@ -50,11 +50,10 @@ class client{
 			perror("sendto logout");
 		close(mySocket);
 		delete(my_request_logout);
-		//std::cerr << "Success.\n";
 	}
 
 	void requestChannels(){
-		 std::cerr << "requesting channels" << std::endl;
+		 //std::cerr << "requesting channels" << std::endl;
 		 //char myBuffer[requestChannelSize];
 		 char replyBuffer[BUFFERLENGTH];
 		//initBuffer(replyBuffer,BUFFERLENGTH);
@@ -63,14 +62,14 @@ class client{
 		my_request_list->req_type = REQ_LIST;
 		if (sendto(mySocket, my_request_list, requestChannelSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
 			perror("client requesting channels");
-		printf("waiting for server reply on port %d\n", THEPORT);
+		//printf("waiting for server reply on port %d\n", THEPORT);
 		bytesRecvd=0;
 		int bytesRecvd = recvfrom(mySocket, replyBuffer, BUFFERLENGTH, 0, (struct sockaddr *)&remoteAddress, &addressSize);
-		printf("(channel request) client received %d bytes\n", bytesRecvd);
+		//printf("(channel request) client received %d bytes\n", bytesRecvd);
 		struct text_list* incoming_text_list;
 		incoming_text_list = (struct text_list*)replyBuffer;
-		int channels = incoming_text_list->txt_nchannels;
-		std::cerr << "incoming got "<< channels << " channels."<<std::endl;
+		//int channels = incoming_text_list->txt_nchannels;
+		//std::cerr << "incoming got "<< channels << " channels."<<std::endl;
 		
 
 
@@ -94,44 +93,8 @@ class client{
 			
 
 		}
+		delete(my_request_list);
 
-		//myBuffer[0] = myBuffer[1] = myBuffer[2] = '0';
-		//myBuffer[3] = '5';
-/*
-		if (sendto(mySocket, myBuffer, requestChannelSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
-			perror("sendto");
-		//printf("waiting for server reply on port %d\n", THEPORT);
-		int bytesRecvd = recvfrom(mySocket, replyBuffer, BUFFERLENGTH, 0, (struct sockaddr *)&remoteAddress, &addressSize);
-		//printf("(channel request) client received %d bytes\n", bytesRecvd);
-		if (bytesRecvd >= 36) {
-			std::string identifier(&replyBuffer[0],&replyBuffer[4]);
-			if (std::atoi(identifier.c_str()) == 1){//correct response code from server
-				
-				union intOrBytes totalChannels;
-				totalChannels.byte[0] = replyBuffer[4];
-				totalChannels.byte[1] = replyBuffer[5];
-				totalChannels.byte[2] = replyBuffer[6];
-				totalChannels.byte[3] = replyBuffer[7];
-				std::vector<std::string> listOfChannels;
-				int position=8;
-				for (int x = 0; x <= totalChannels.integer; x++){
-					std::string channel(&replyBuffer[position],&replyBuffer[position+32]);
-					listOfChannels.push_back(channel);
-					position+=32;
-				}
-				std::cerr << "List of received Channels: ";
-				int count=1;
-				for (std::vector<std::string>::iterator iter = listOfChannels.begin(); iter != listOfChannels.end(); ++iter) {
-			    	std::cerr << *iter;
-			    	if (count++<totalChannels.integer)
-			    	 	std::cerr << ", ";
-
-			    }
-			    std::cerr<<std::endl;
-			}
-			
-		}	
-		*/
 	}
 	void say(std::string channel, std::string textfield){
 		if (channel.length()>31) //format input if too big
@@ -143,7 +106,7 @@ class client{
 		//std::cerr << "Joining channel " << channel << " ..." ;
 		 char myBuffer[sayRequestSize];
 		initBuffer(myBuffer,sayRequestSize);
-		unsigned int choice = joinSize;
+		unsigned int choice = joinLeaveSize;
 		if (choice>channel.length())
 			choice = channel.length();
 		//strcpy(myBuffer,"0004");
@@ -171,53 +134,35 @@ class client{
 	void join(std::string channel){
 		if (channel.length()>31) //format input if too big
 			channel = channel.substr(0,31);
-		//std::cerr << "Joining channel " << channel << " ..." ;
-		char myBuffer[joinSize];
-		initBuffer(myBuffer,joinSize);
-		unsigned int choice = joinSize;
-		if (choice>channel.length())
-			choice = channel.length();
-		//strcpy(myBuffer,"0002");
-		myBuffer[0] = myBuffer[1] = myBuffer[2] = '0';
-		myBuffer[3] = '2';
 
-		for (unsigned int x=0; x<choice; x++){
-		   	myBuffer[x+4] = channel[x];
-		}   
-		if (sendto(mySocket, myBuffer, joinSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
-			perror("requesting to join a channel (from client)");
-		//std::cerr << "Success.\n";
+		
+		struct request_join* my_request_join= new request_join;
+		my_request_join->req_type = REQ_JOIN;
+		strcpy(my_request_join->req_channel,channel.c_str());
+		if (sendto(mySocket, my_request_join, joinLeaveSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
+			perror("sendto request to join from client");
+		delete(my_request_join);
+		
 	}
 	void leave(std::string channel){
 		if (channel.length()>31) //format input if too big
 			channel = channel.substr(0,31);
 
-		std::cerr << "Leaving channel " << channel << " ..." ;
-		 char myBuffer[joinSize];
-		initBuffer(myBuffer,joinSize);
-		unsigned int choice = joinSize;
-		if (choice>channel.length())
-			choice = channel.length();
-		myBuffer[0] = myBuffer[1] = myBuffer[2] = '0';
-		myBuffer[3] = '3';
-
-
-		for (unsigned int x=0; x<choice; x++){
-		   	myBuffer[x+4] = channel[x];
-		}   
-		if (sendto(mySocket, myBuffer, joinSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
-			perror("requesting to leave a channel (from client)");
-		std::cerr << "Success.\n";
-	
-
-
+		
+		struct request_leave* my_request_leave= new request_leave;
+		my_request_leave->req_type = REQ_LEAVE;
+		strcpy(my_request_leave->req_channel,channel.c_str());
+		if (sendto(mySocket, my_request_leave, joinLeaveSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
+			perror("sendto request to join from client");
+		delete(my_request_leave);
+		
 
 	}	
 	void who(std::string channel){
 		std::cerr << "who is in channel " << channel << " ..." ;
-		 char myBuffer[joinSize];
-		initBuffer(myBuffer,joinSize);
-		unsigned int choice = joinSize;
+		 char myBuffer[joinLeaveSize];
+		initBuffer(myBuffer,joinLeaveSize);
+		unsigned int choice = joinLeaveSize;
 		if (choice>channel.length())
 			choice = channel.length();
 		myBuffer[0] = myBuffer[1] = myBuffer[2] = '0';
@@ -227,7 +172,7 @@ class client{
 		for (unsigned int x=0; x<choice; x++){//need error checking on input eventually, assuming it is <=32 here
 		   	myBuffer[x+4] = channel[x];
 		}   
-		if (sendto(mySocket, myBuffer, joinSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
+		if (sendto(mySocket, myBuffer, joinLeaveSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
 			perror("requesting who in channel (from client)");
 		std::cerr << "Success.\n";
 	
@@ -274,11 +219,13 @@ class client{
 int main (int argc, char *argv[]){
 	client* thisClient = new client("Bobby Joeleine Smith4357093487509384750938475094387509348750439875430987435","127.0.0.1");
 	thisClient->login();
-	thisClient->requestChannels();
-/*	thisClient->join("newChannel");
+	thisClient->join("Common");
+//	thisClient->requestChannels();
 	thisClient->join("newChannel");
-
 	thisClient->leave("newChannel");
+	/*thisClient->join("newChannel");
+
+	
 	
 	//thisClient->join("anotherChannel");
 	//thisClient->join("newChannel");

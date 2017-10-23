@@ -1,6 +1,6 @@
 const int loginSize = 36;
 const int logoutSize = 4;
-const int joinSize = 36;//leave 
+const int joinLeaveSize = 36;
 const int sayRequestSize = 100;
 const int requestChannelSize = 4;
 #include "duckchat.h"
@@ -12,6 +12,15 @@ struct userInfo
 	std::string myActiveChannel;
 	std::string myIPAddress;
 };
+
+
+struct channelInfo
+{
+	std::string myChannelName;
+	std::vector<std::string> myUsers;
+	
+};
+
 
 union intOrBytes
 {
