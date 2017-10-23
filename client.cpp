@@ -33,32 +33,71 @@ class client{
 	void login(){
 		if (userName.length()>31)//truncate username if too big
 			userName = userName.substr(0,31);
-		std::cerr << "Logging In " << userName << " ..." ;
+		//std::cerr << "Logging In " << userName << " ..." ;
 		struct request_login* my_request_login= new request_login;
 		my_request_login->req_type = REQ_LOGIN;
 		strcpy(my_request_login->req_username,userName.c_str());
 		if (sendto(mySocket, my_request_login, loginSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
 			perror("sendto login");
-		std::cerr << "Success.\n";
+		delete(my_request_login);
+		//std::cerr << "Success.\n";
 	}
 	void logout(){
-		std::cerr << "Logging Out " << userName << " ..." ;
+		//std::cerr << "Logging Out " << userName << " ..." ;
 		struct request_logout* my_request_logout= new request_logout;
 		my_request_logout->req_type = REQ_LOGOUT;
 		if (sendto(mySocket, my_request_logout, logoutSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
 			perror("sendto logout");
 		close(mySocket);
-		std::cerr << "Success.\n";
+		delete(my_request_logout);
+		//std::cerr << "Success.\n";
 	}
 
 	void requestChannels(){
-		 char myBuffer[requestChannelSize];
+		 std::cerr << "requesting channels" << std::endl;
+		 //char myBuffer[requestChannelSize];
 		 char replyBuffer[BUFFERLENGTH];
-		initBuffer(replyBuffer,BUFFERLENGTH);
+		//initBuffer(replyBuffer,BUFFERLENGTH);
 		//sprintf(myBuffer, "0005");
-		myBuffer[0] = myBuffer[1] = myBuffer[2] = '0';
-		myBuffer[3] = '5';
+		struct request_list* my_request_list= new request_list;
+		my_request_list->req_type = REQ_LIST;
+		if (sendto(mySocket, my_request_list, requestChannelSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
+			perror("client requesting channels");
+		printf("waiting for server reply on port %d\n", THEPORT);
+		bytesRecvd=0;
+		int bytesRecvd = recvfrom(mySocket, replyBuffer, BUFFERLENGTH, 0, (struct sockaddr *)&remoteAddress, &addressSize);
+		printf("(channel request) client received %d bytes\n", bytesRecvd);
+		struct text_list* incoming_text_list;
+		incoming_text_list = (struct text_list*)replyBuffer;
+		int channels = incoming_text_list->txt_nchannels;
+		std::cerr << "incoming got "<< channels << " channels."<<std::endl;
+		
 
+
+		if (/*incoming_text_list->txt_type==TXT_LIST && */ bytesRecvd>=32){
+			int channels = incoming_text_list->txt_nchannels;
+			std::cerr << "got "<< channels << " channels."<<std::endl;
+		
+
+			struct channel_info* txt_channels;
+			txt_channels = (struct channel_info*)incoming_text_list->txt_channels;
+
+			std::vector<std::string> listOfChannels;
+			for (int x=0; x<channels; x++){
+				listOfChannels.push_back(std::string(txt_channels[x].ch_channel));
+			}
+			
+			std::cerr<<"Existing channels:"<<std::endl;
+			for (std::vector<std::string>::iterator iter = listOfChannels.begin(); iter != listOfChannels.end(); ++iter) {
+				std::cerr << " "<<*iter << std::endl;
+			}
+			
+
+		}
+
+		//myBuffer[0] = myBuffer[1] = myBuffer[2] = '0';
+		//myBuffer[3] = '5';
+/*
 		if (sendto(mySocket, myBuffer, requestChannelSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
 			perror("sendto");
 		//printf("waiting for server reply on port %d\n", THEPORT);
@@ -92,7 +131,7 @@ class client{
 			}
 			
 		}	
-		
+		*/
 	}
 	void say(std::string channel, std::string textfield){
 		if (channel.length()>31) //format input if too big
@@ -235,7 +274,7 @@ class client{
 int main (int argc, char *argv[]){
 	client* thisClient = new client("Bobby Joeleine Smith4357093487509384750938475094387509348750439875430987435","127.0.0.1");
 	thisClient->login();
-	//thisClient->requestChannels();
+	thisClient->requestChannels();
 /*	thisClient->join("newChannel");
 	thisClient->join("newChannel");
 
