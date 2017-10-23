@@ -1,21 +1,6 @@
-#include <stdio.h>
-#include <stdlib.h>	/* needed for os x*/
-#include <cstdlib>
-#include <cstdint>
-#include <string.h>	/* strlen */
-#include <netdb.h>      /* gethostbyname() */
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <iostream>
-#include <string>
-#include <iomanip>
-#include <sstream>
-#include <vector>
 #include "shared.h"
 
-#define BUFFERLENGTH  1024
-#define THEPORT  3264
+
 
 
 class server{

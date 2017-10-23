@@ -1,23 +1,4 @@
-#include <stdio.h>
-#include <stdlib.h>	/* needed for os x*/
-#include <cstdlib>
-#include <cstdint>
-#include <string.h>	/* strlen */
-#include <netdb.h>      /* gethostbyname() */
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <iostream>
-#include <unistd.h>
-#include <vector>
 #include "shared.h"
-
-#define BUFFERLENGTH  1024
-#define THEPORT  3264
-
-
-
-
 
 class client{
 	private:
@@ -223,11 +204,11 @@ int main (int argc, char *argv[]){
 	client* thisClient = new client("Bobby Joeleine Smith4357093487509384750938475094387509348750439875430987435","127.0.0.1");
 	thisClient->login();
 	thisClient->join("Common");
-	thisClient->say("wazzup bitches?");
+	thisClient->say("wazzup?");
 
 //	thisClient->requestChannels();
 	thisClient->join("newChannel");
-	thisClient->say("wazzup bitches?");
+	thisClient->say("hello?");
 	thisClient->who("newChannel");
 	thisClient->leave("newChannel");
 	/*thisClient->join("newChannel");
