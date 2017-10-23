@@ -1,8 +1,9 @@
 const int loginSize = 36;
-const int logoutSize = 4;
+//const int logoutSize = 4;
 const int joinLeaveWhoSize = 36;
 const int sayRequestSize = 100;
-const int requestChannelSize = 4;
+//const int requestChannelSize = 4;
+const int logoutListSize = 4;
 #include "duckchat.h"
 
 struct userInfo

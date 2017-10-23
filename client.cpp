@@ -46,7 +46,7 @@ class client{
 		//std::cerr << "Logging Out " << userName << " ..." ;
 		struct request_logout* my_request_logout= new request_logout;
 		my_request_logout->req_type = REQ_LOGOUT;
-		if (sendto(mySocket, my_request_logout, logoutSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
+		if (sendto(mySocket, my_request_logout, logoutListSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
 			perror("sendto logout");
 		close(mySocket);
 		delete(my_request_logout);
@@ -54,17 +54,17 @@ class client{
 
 	void requestChannels(){
 		 //std::cerr << "requesting channels" << std::endl;
-		 //char myBuffer[requestChannelSize];
+		 //char myBuffer[logoutListSize];
 		 char replyBuffer[BUFFERLENGTH];
 		//initBuffer(replyBuffer,BUFFERLENGTH);
 		//sprintf(myBuffer, "0005");
 		struct request_list* my_request_list= new request_list;
 		my_request_list->req_type = REQ_LIST;
-		if (sendto(mySocket, my_request_list, requestChannelSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
+		if (sendto(mySocket, my_request_list, logoutListSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
 			perror("client requesting channels");
 		//printf("waiting for server reply on port %d\n", THEPORT);
-		bytesRecvd=0;
-		int bytesRecvd = recvfrom(mySocket, replyBuffer, BUFFERLENGTH, 0, (struct sockaddr *)&remoteAddress, &addressSize);
+		int bytesRecvd=0;
+		bytesRecvd = recvfrom(mySocket, replyBuffer, BUFFERLENGTH, 0, (struct sockaddr *)&remoteAddress, &addressSize);
 		//printf("(channel request) client received %d bytes\n", bytesRecvd);
 		struct text_list* incoming_text_list;
 		incoming_text_list = (struct text_list*)replyBuffer;
@@ -128,6 +128,7 @@ class client{
 	}	
 	void who(std::string channel){
 		truncate(channel,CHANNEL_MAX-1);
+		char replyBuffer[BUFFERLENGTH];
 		
 		struct request_who* my_request_who= new request_who;
 		my_request_who->req_type = REQ_WHO;
@@ -135,6 +136,45 @@ class client{
 		
 		if (sendto(mySocket, my_request_who, joinLeaveWhoSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
 			perror("requesting who in channel (from client)");
+
+		int bytesRecvd=0;
+		bytesRecvd = recvfrom(mySocket, replyBuffer, BUFFERLENGTH, 0, (struct sockaddr *)&remoteAddress, &addressSize);
+		//printf("(channel request) client received %d bytes\n", bytesRecvd);
+		struct text_who* incoming_text_who;
+		incoming_text_who = (struct text_who*)replyBuffer;
+		//int channels = incoming_text_list->txt_nchannels;
+		//std::cerr << "incoming got "<< channels << " channels."<<std::endl;
+		
+
+
+		if (/*incoming_text_list->txt_type==TXT_LIST && */ bytesRecvd>=40){
+			unsigned int userNames = incoming_text_who->txt_nusernames;
+			std::cerr << "got "<< userNames << " usernames."<<std::endl;
+		
+
+			struct user_info* txt_users;
+			txt_users = (struct user_info*)incoming_text_who->txt_users;
+
+			std::vector<std::string> listOfUsers;
+			for (unsigned int x=0; x<userNames; x++){
+				listOfUsers.push_back(std::string(txt_users[x].us_username));
+			}
+			
+			std::cerr<<"Users on channel:"<<std::endl;
+			for (std::vector<std::string>::iterator iter = listOfUsers.begin(); iter != listOfUsers.end(); ++iter) {
+				std::cerr << " "<<*iter << std::endl;
+			}
+			
+
+		}
+		delete(my_request_who);
+
+
+
+
+
+
+
 		std::cerr << "Success.\n";
 	
 
@@ -188,6 +228,7 @@ int main (int argc, char *argv[]){
 //	thisClient->requestChannels();
 	thisClient->join("newChannel");
 	thisClient->say("wazzup bitches?");
+	thisClient->who("newChannel");
 	thisClient->leave("newChannel");
 	/*thisClient->join("newChannel");
 

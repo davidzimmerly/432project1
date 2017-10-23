@@ -78,7 +78,7 @@ class server{
 				     		}
 				     	}
 					}
-					else if (identifier == REQ_LOGOUT && bytesRecvd==logoutSize){//logout
+					else if (identifier == REQ_LOGOUT && bytesRecvd==logoutListSize){//logout
 						if (currentUsers.size()>0) {
 							int size =  currentUsers.size();
 							for (int x=0; x <size; x++){
@@ -173,67 +173,25 @@ class server{
 								}
 			     			}
 		     				
-		     				//need to check for empty channel and remove here with server message
 		     			}
 					}
-					else if (identifier == 4){//say request
-						std::string channelNameBuffer(&myBuffer[4],&myBuffer[36]);
-						std::string textFieldBuffer(&myBuffer[37],&myBuffer[99]);
-						std::string channelToAnnounce="";
-						std::string textField="";
-						std::string userName;
+					else if (identifier == REQ_SAY && bytesRecvd==sayRequestSize){//say request
+						struct request_say* incoming_request_say;
+						incoming_request_say = (struct request_say*)myBuffer;
+						std::string channelToAnnounce = std::string(incoming_request_say->req_channel);
+						std::string textField = std::string(incoming_request_say->req_text);						
 						int userSlot = findUserSlot(remoteIPAddress);
-
+						
 		     			if (userSlot>=0){//user found
-		     				int end=0;
-			     			for (int x=4;x<36;x++){
-			     				if (channelNameBuffer[x]=='\0'){
-			     					end = x;
-			     					x=36;
-			     				}
-			     			}
-			     			end=0;
-
-			     			for (int x=4;x<36;x++){
-			     				if (channelNameBuffer[x]=='\0'){
-			     					end = x;
-			     					x=36;
-			     				}
-			     			}
-			     			
-			     			if (end>0)
-			     				channelToAnnounce = channelNameBuffer.substr(0,end);
-			     			end=0;
-			     			for (int x=4;x<36;x++){
-			     				if (channelNameBuffer[x]=='\0'){
-			     					end = x;
-			     					x=36;
-			     				}
-			     			}
-			     			if (end>0)
-			     				textField = textFieldBuffer.substr(0,end);
-
-
-
-
-			     			std::cerr << "say request received from "<< "userName: " <<userName << "for channel " << channelToAnnounce << std::endl;
+		     				std::string userName=currentUsers[userSlot].myUserName;
+		     				std::cerr << "say request received from "<< "userName: " <<userName << "for channel " << channelToAnnounce << std::endl;
 			     			std::cerr <<"msg: "<< textField << std::endl;
 			     			//now need to find all users of this channel (maybe a function for this?)
+			     			// (not a problem) but figure out how to deliver them***********8*****
 
-
-							/*for (int x=0; x <currentUsers[userSlot].myChannels.size(); x++){
-								if (channelToLeave.compare(currentUsers[userSlot].myChannels[x]) == 0){
-			     					currentUsers[userSlot].myChannels.erase(currentUsers[userSlot].myChannels.begin() + x);
-			     					std::cerr << "successfully left channel "<<channelToLeave<<std::endl;
-			     					break;
-			     				}
-			     			}
-		     				if (currentUsers[userSlot].myActiveChannel == channelToLeave)
-		     					currentUsers[userSlot].myActiveChannel = "Common";*/
-		     			//}
+						}
 					}
-					}
-					else if (identifier == REQ_LIST){//list of channels
+					else if (identifier == REQ_LIST && bytesRecvd==logoutListSize){//list of channels
 						int size = channelList.size();
 						int reserveSize = sizeof(text_list)+sizeof(channel_info)*size-1;
 						struct text_list* my_text_list = (text_list*)malloc(reserveSize);
@@ -246,6 +204,43 @@ class server{
 							perror("server sending channel list error");
 						free(my_text_list);
 					}
+					else if (identifier == REQ_WHO && bytesRecvd==joinLeaveWhoSize){//list of people on certain channel
+						struct request_who* incoming_request_who;
+						incoming_request_who = (struct request_who*)myBuffer;
+						std::string channelToQuery = std::string(incoming_request_who->req_channel);
+						int userSlot = findUserSlot(remoteIPAddress);
+						std::string userName = currentUsers[userSlot].myUserName;
+		     			
+
+						//find given channel, check size
+						int position =-1;
+						for (unsigned int x=0; x<channelList.size(); x++){
+							if (channelToQuery.compare(channelList[x].myChannelName)==0){
+								position=x;
+								break;
+							}
+						}
+						if (position>-1){
+							int size = channelList[position].myUsers.size();
+							int reserveSize = sizeof(text_who)+sizeof(user_info)*size-1;
+							struct text_who* my_text_who = (text_who*)malloc(reserveSize);
+							my_text_who->txt_type = TXT_WHO;
+							my_text_who->txt_nusernames = size;
+							strcpy(my_text_who->txt_channel,channelToQuery.c_str());
+							for (unsigned int x=0; x<channelList[position].myUsers.size(); x++){
+								strcpy(my_text_who->txt_users[x].us_username,channelList[position].myUsers[x].c_str());
+							}
+							if (sendto(mySocket, my_text_who, reserveSize, 0, (struct sockaddr *)&remoteAddress, remoteIPAddressSize)==-1)
+								perror("server sending who is error");
+						}
+						
+					}
+					
+
+
+
+
+
 					
 
 					//show who is online
