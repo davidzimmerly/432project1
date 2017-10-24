@@ -176,6 +176,26 @@ class server{
 
 						}
 					}
+					else if (identifier == REQ_SWITCH && bytesRecvd==logoutListSize){//say request
+						struct request_switch* incoming_request_switch;
+						incoming_request_switch = (struct request_switch*)myBuffer;
+						std::string channel = std::string(incoming_request_switch->req_channel);
+						
+						int userSlot = findUserSlot(remoteIPAddress);
+						
+		     			if (userSlot>=0){//user found
+		     			//now want to check if user is subscribed to channel
+		     				if (findStringPositionInVector(currentUsers[userSlot].myChannels,channel)>-1)
+		     					currentUsers[userSlot].myActiveChannel = channel;
+		
+		     			//	std::string userName=currentUsers[userSlot].myUserName;
+		     			//	std::cerr << "say request received from "<< "userName: " <<userName << "for channel " << channelToAnnounce << std::endl;
+			     		//	std::cerr <<"msg: "<< textField << std::endl;
+			     			//now need to find all users of this channel (maybe a function for this?)
+			     			// (not a problem) but figure out how to deliver them***********8*****
+
+						}
+					}
 					else if (identifier == REQ_LIST && bytesRecvd==logoutListSize){//list of channels
 						int size = channelList.size();
 						int reserveSize = sizeof(text_list)+sizeof(channel_info)*size-1;

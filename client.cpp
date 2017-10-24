@@ -11,7 +11,8 @@ class client{
 		std::string remoteAddressString;
 		int bytesRecvd;
 		std::string myActiveChannel;
-		
+		std::vector<std::string> myChannels;
+
 	public:
 	int getServerResponse(bool nonblocking, char* replyBuffer){
 		int flag = 0;
@@ -141,7 +142,28 @@ class client{
 			perror(error.c_str());
 		
 	}
+	void switchChannel(std::string channel){
+		truncate(channel,CHANNEL_MAX-1);
+		struct request_switch* my_request_switch = new request_switch;
+		my_request_switch->req_type = REQ_SWITCH;
+		strcpy(my_request_switch->req_channel,channel.c_str());
+		
+		/*bool found = false;
+		for (std::vector<std::string>::iterator iter = myChannels.begin(); iter != myChannels.end(); ++iter) {
+			std::string temp = *iter;
+			if (channel==temp){
+				found=true;
+				break;
+			}
+		}*/
 
+		if (findStringPositionInVector(myChannels,channel)>-1)
+			myActiveChannel = channel;
+		send((char*)my_request_switch, joinLeaveWhoSize,"sendto request to join from client");
+		delete(my_request_switch);
+		
+	}
+	
 
 
 	void join(std::string channel){
@@ -150,10 +172,25 @@ class client{
 		my_request_join->req_type = REQ_JOIN;
 		strcpy(my_request_join->req_channel,channel.c_str());
 		myActiveChannel = channel;
+		
+		//if (findStringPositionInVector(myChannels,channel)>-1)
+		
+
+		/*bool found = false;
+		for (std::vector<std::string>::iterator iter = myChannels.begin(); iter != myChannels.end(); ++iter) {
+			std::string temp = *iter;
+			if (channel==temp){
+				found=true;
+				break;
+			}
+		}*/
+		if (findStringPositionInVector(myChannels,channel)==-1)
+			myChannels.push_back(channel);
 		send((char*)my_request_join, joinLeaveWhoSize,"sendto request to join from client");
 		delete(my_request_join);
 		
 	}
+
 	void leave(std::string channel){
 		truncate(channel,CHANNEL_MAX-1);
 		struct request_leave* my_request_leave= new request_leave;
@@ -240,12 +277,14 @@ int main (int argc, char *argv[]){
 	client* thisClient = new client("Bobby Joeleine Smith4357093487509384750938475094387509348750439875430987435","127.0.0.1");
 	thisClient->login();
 	thisClient->join("Common");
-	thisClient->say("wazzup?");
+	//thisClient->say("wazzup?");
 
-	thisClient->requestChannels();
+	//thisClient->requestChannels();
 	thisClient->join("newChannel");
+	thisClient->switchChannel("Common");
+	
 	thisClient->say("hello?");
-	thisClient->who("Common");
+	//thisClient->who("Common");
 	//thisClient->leave("newChannel");
 	/*thisClient->join("newChannel");
 //plan get non blocking exitable loop going to wait for chat messages, and build console on top
