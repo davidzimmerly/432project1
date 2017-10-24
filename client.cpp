@@ -1,3 +1,4 @@
+#include "raw.h"
 #include "shared.h"
 
 class client{
@@ -12,9 +13,9 @@ class client{
 		std::string myActiveChannel;
 		
 	public:
-	int getServerResponse(bool blocking, char* replyBuffer){
+	int getServerResponse(bool nonblocking, char* replyBuffer){
 		int flag = 0;
-		if (blocking)
+		if (nonblocking)
 			flag = MSG_DONTWAIT;
 		int bytesRecvd=0;
 		bytesRecvd = recvfrom(mySocket, replyBuffer, BUFFERLENGTH, flag, (struct sockaddr *)&remoteAddress, &addressSize);
@@ -47,6 +48,44 @@ class client{
 			}
 			return TXT_LIST;
 		}
+		else if (incoming_text->txt_type==TXT_WHO && bytesRecvd>=40){
+			struct text_who* incoming_text_who;
+			incoming_text_who = (struct text_who*)replyBuffer;
+		
+			int userNames = incoming_text_who->txt_nusernames;
+			std::string channel = std::string(incoming_text_who->txt_channel);
+			struct user_info* txt_users;
+			txt_users = (struct user_info*)incoming_text_who->txt_users;
+
+			std::vector<std::string> listOfUsers;
+			for (int x=0; x<userNames; x++){
+				listOfUsers.push_back(std::string(txt_users[x].us_username));
+			}
+			
+			std::cerr<<"Users on channel "<<channel<<":"<<std::endl;
+			for (std::vector<std::string>::iterator iter = listOfUsers.begin(); iter != listOfUsers.end(); ++iter) {
+				std::cerr << " "<<*iter << std::endl;
+			}
+		}
+		else if (incoming_text->txt_type==TXT_SAY/* &&  bytesRecvd==sayRequestSize*/){
+			struct text_say* incoming_text_say;
+			incoming_text_say = (struct text_say*)replyBuffer;
+			
+			std::string channel = incoming_text_say->txt_channel;
+			std::string userName= incoming_text_say->txt_username;
+			std::string message= incoming_text_say->txt_text;
+
+			std::cerr<<"["<<channel<<"]["<<userName<<"]: "<<message<<std::endl;
+			return TXT_SAY;
+		}
+		
+	
+
+
+
+
+
+
 		
 
 
@@ -80,9 +119,10 @@ class client{
 		send((char*)my_request_list,logoutListSize,"client requesting channels");
 		//if (sendto(mySocket, my_request_list, logoutListSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
 		//	perror("client requesting channels");
-		int bytesRecvd=0;
-		bytesRecvd = getServerResponse(false,replyBuffer);
-		handleServerResponse(replyBuffer,bytesRecvd);
+		//int bytesRecvd=0;
+		//bytesRecvd = 
+		getServerResponse(false,replyBuffer);
+		//handleServerResponse(replyBuffer,bytesRecvd);
 		delete(my_request_list);
 
 	}
@@ -134,9 +174,12 @@ class client{
 		
 		send((char*)my_request_who,joinLeaveWhoSize,"requesting who in channel (from client)");
 		
-		int bytesRecvd=0;
-		bytesRecvd = getServerResponse(false,replyBuffer);
-		if (bytesRecvd>=40){
+		//int bytesRecvd=0;
+		//bytesRecvd = 	
+		getServerResponse(false,replyBuffer);
+		//handleServerResponse(replyBuffer,bytesRecvd);
+
+		/*if (bytesRecvd>=40){
 			struct text* incoming_text;
 			incoming_text = (struct text*)replyBuffer;
 			if (incoming_text->txt_type==TXT_WHO ){
@@ -158,7 +201,7 @@ class client{
 					std::cerr << " "<<*iter << std::endl;
 				}
 			}
-		}
+		}*/
 		delete(my_request_who);
 	}
 
@@ -207,14 +250,26 @@ int main (int argc, char *argv[]){
 	/*thisClient->join("newChannel");
 //plan get non blocking exitable loop going to wait for chat messages, and build console on top
 	 let's functionize stuff first*/
-
-	/*
+	char replyBuffer[BUFFERLENGTH];
+	int bytesRecvd=0;
+	
 	bool running = true;
 	while (running){
+		bytesRecvd = thisClient->getServerResponse(true,replyBuffer);
+		if (bytesRecvd>0){
+			std::cerr << "got something i think!"<<std::endl;
+			thisClient->handleServerResponse(replyBuffer,bytesRecvd);
+		}
+		//std::string input;
+		//std::cin >> input;
+		/*int c = getchar();
+		raw_mode();
+		if (c=='.')
+			running=false;
+		putchar(c);*/
+		sleep(.1);
 
-		sleep(1);
-
-	}*/
+	}
 
 
 	
