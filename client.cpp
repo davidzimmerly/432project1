@@ -34,31 +34,18 @@ class client{
 	}
 
 	void requestChannels(){
-		 //std::cerr << "requesting channels" << std::endl;
-		 //char myBuffer[logoutListSize];
-		 char replyBuffer[BUFFERLENGTH];
-		//initBuffer(replyBuffer,BUFFERLENGTH);
-		//sprintf(myBuffer, "0005");
+		char replyBuffer[BUFFERLENGTH];
 		struct request_list* my_request_list= new request_list;
 		my_request_list->req_type = REQ_LIST;
 		if (sendto(mySocket, my_request_list, logoutListSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
 			perror("client requesting channels");
-		//printf("waiting for server reply on port %d\n", THEPORT);
 		int bytesRecvd=0;
 		bytesRecvd = recvfrom(mySocket, replyBuffer, BUFFERLENGTH, 0, (struct sockaddr *)&remoteAddress, &addressSize);
-		//printf("(channel request) client received %d bytes\n", bytesRecvd);
 		struct text_list* incoming_text_list;
 		incoming_text_list = (struct text_list*)replyBuffer;
-		//int channels = incoming_text_list->txt_nchannels;
-		//std::cerr << "incoming got "<< channels << " channels."<<std::endl;
 		
-
-
-		if (/*incoming_text_list->txt_type==TXT_LIST && */ bytesRecvd>=32){
+		if (incoming_text_list->txt_type==TXT_LIST &&  bytesRecvd>=32){
 			int channels = incoming_text_list->txt_nchannels;
-			std::cerr << "got "<< channels << " channels."<<std::endl;
-		
-
 			struct channel_info* txt_channels;
 			txt_channels = (struct channel_info*)incoming_text_list->txt_channels;
 
@@ -71,8 +58,6 @@ class client{
 			for (std::vector<std::string>::iterator iter = listOfChannels.begin(); iter != listOfChannels.end(); ++iter) {
 				std::cerr << " "<<*iter << std::endl;
 			}
-			
-
 		}
 		delete(my_request_list);
 
@@ -120,28 +105,25 @@ class client{
 
 		int bytesRecvd=0;
 		bytesRecvd = recvfrom(mySocket, replyBuffer, BUFFERLENGTH, 0, (struct sockaddr *)&remoteAddress, &addressSize);
-		//printf("(channel request) client received %d bytes\n", bytesRecvd);
-		struct text_who* incoming_text_who;
-		incoming_text_who = (struct text_who*)replyBuffer;
-		//int channels = incoming_text_list->txt_nchannels;
-		//std::cerr << "incoming got "<< channels << " channels."<<std::endl;
+
+		struct text* incoming_text;
+		incoming_text = (struct text*)replyBuffer;
+
+		if (incoming_text->txt_type==TXT_WHO &&  bytesRecvd>=40){
+			struct text_who* incoming_text_who;
+			incoming_text_who = (struct text_who*)replyBuffer;
 		
-
-
-		if (/*incoming_text_list->txt_type==TXT_LIST && */ bytesRecvd>=40){
-			unsigned int userNames = incoming_text_who->txt_nusernames;
-			std::cerr << "got "<< userNames << " usernames."<<std::endl;
-		
-
+			int userNames = incoming_text_who->txt_nusernames;
+			
 			struct user_info* txt_users;
 			txt_users = (struct user_info*)incoming_text_who->txt_users;
 
 			std::vector<std::string> listOfUsers;
-			for (unsigned int x=0; x<userNames; x++){
+			for (int x=0; x<userNames; x++){
 				listOfUsers.push_back(std::string(txt_users[x].us_username));
 			}
 			
-			std::cerr<<"Users on channel:"<<std::endl;
+			std::cerr<<"Users on channel "<<channel<<":"<<std::endl;
 			for (std::vector<std::string>::iterator iter = listOfUsers.begin(); iter != listOfUsers.end(); ++iter) {
 				std::cerr << " "<<*iter << std::endl;
 			}
@@ -149,18 +131,6 @@ class client{
 
 		}
 		delete(my_request_who);
-
-
-
-
-
-
-
-		std::cerr << "Success.\n";
-	
-
-
-
 	}
 
 
@@ -196,21 +166,17 @@ class client{
 	}
 };
 
-
-
-
-
 int main (int argc, char *argv[]){
 	client* thisClient = new client("Bobby Joeleine Smith4357093487509384750938475094387509348750439875430987435","127.0.0.1");
 	thisClient->login();
 	thisClient->join("Common");
-	thisClient->say("wazzup?");
+	//thisClient->say("wazzup?");
 
-//	thisClient->requestChannels();
-	thisClient->join("newChannel");
-	thisClient->say("hello?");
-	thisClient->who("newChannel");
-	thisClient->leave("newChannel");
+	thisClient->requestChannels();
+	//thisClient->join("newChannel");
+	//thisClient->say("hello?");
+	thisClient->who("Common");
+	//thisClient->leave("newChannel");
 	/*thisClient->join("newChannel");
 
 	
