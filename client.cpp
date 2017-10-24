@@ -12,39 +12,26 @@ class client{
 		std::string myActiveChannel;
 		
 	public:
-	void login(){
-		truncate(userName,CHANNEL_MAX-1);
-		//std::cerr << "Logging In " << userName << " ..." ;
-		struct request_login* my_request_login= new request_login;
-		my_request_login->req_type = REQ_LOGIN;
-		strcpy(my_request_login->req_username,userName.c_str());
-		if (sendto(mySocket, my_request_login, loginSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
-			perror("sendto login");
-		delete(my_request_login);
-		//std::cerr << "Success.\n";
-	}
-	void logout(){
-		//std::cerr << "Logging Out " << userName << " ..." ;
-		struct request_logout* my_request_logout= new request_logout;
-		my_request_logout->req_type = REQ_LOGOUT;
-		if (sendto(mySocket, my_request_logout, logoutListSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
-			perror("sendto logout");
-		close(mySocket);
-		delete(my_request_logout);
-	}
-
-	void requestChannels(){
-		char replyBuffer[BUFFERLENGTH];
-		struct request_list* my_request_list= new request_list;
-		my_request_list->req_type = REQ_LIST;
-		if (sendto(mySocket, my_request_list, logoutListSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
-			perror("client requesting channels");
+	int getServerResponse(bool blocking, char* replyBuffer){
+		int flag = 0;
+		if (blocking)
+			flag = MSG_DONTWAIT;
 		int bytesRecvd=0;
-		bytesRecvd = recvfrom(mySocket, replyBuffer, BUFFERLENGTH, 0, (struct sockaddr *)&remoteAddress, &addressSize);
-		struct text_list* incoming_text_list;
-		incoming_text_list = (struct text_list*)replyBuffer;
+		bytesRecvd = recvfrom(mySocket, replyBuffer, BUFFERLENGTH, flag, (struct sockaddr *)&remoteAddress, &addressSize);
+		if (bytesRecvd>0){
+			return bytesRecvd;
+		}
+		else return 0;
+	}
+	int handleServerResponse(char* replyBuffer,int bytesRecvd){
+		//assuming you have checked size of response first so it matches one of the types (need function to check this)
+		struct text* incoming_text;
+		incoming_text = (struct text*)replyBuffer;
 		
-		if (incoming_text_list->txt_type==TXT_LIST &&  bytesRecvd>=32){
+		if (incoming_text->txt_type==TXT_LIST &&  bytesRecvd>=32){
+			struct text_list* incoming_text_list;
+			incoming_text_list = (struct text_list*)replyBuffer;
+			
 			int channels = incoming_text_list->txt_nchannels;
 			struct channel_info* txt_channels;
 			txt_channels = (struct channel_info*)incoming_text_list->txt_channels;
@@ -58,7 +45,44 @@ class client{
 			for (std::vector<std::string>::iterator iter = listOfChannels.begin(); iter != listOfChannels.end(); ++iter) {
 				std::cerr << " "<<*iter << std::endl;
 			}
+			return TXT_LIST;
 		}
+		
+
+
+		return 0;
+	}
+
+	void login(){
+		truncate(userName,CHANNEL_MAX-1);
+		struct request_login* my_request_login= new request_login;
+		my_request_login->req_type = REQ_LOGIN;
+		strcpy(my_request_login->req_username,userName.c_str());
+		send((char*)my_request_login,loginSize,"sendto login");
+		delete(my_request_login);
+		
+	}
+	void logout(){
+		//std::cerr << "Logging Out " << userName << " ..." ;
+		struct request_logout* my_request_logout= new request_logout;
+		my_request_logout->req_type = REQ_LOGOUT;
+		send((char*)my_request_logout,logoutListSize,"sendto logout");
+		//if (sendto(mySocket, my_request_logout, logoutListSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
+		//	perror("sendto logout");
+		close(mySocket);
+		delete(my_request_logout);
+	}
+
+	void requestChannels(){
+		char replyBuffer[BUFFERLENGTH];
+		struct request_list* my_request_list= new request_list;
+		my_request_list->req_type = REQ_LIST;
+		send((char*)my_request_list,logoutListSize,"client requesting channels");
+		//if (sendto(mySocket, my_request_list, logoutListSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
+		//	perror("client requesting channels");
+		int bytesRecvd=0;
+		bytesRecvd = getServerResponse(false,replyBuffer);
+		handleServerResponse(replyBuffer,bytesRecvd);
 		delete(my_request_list);
 
 	}
@@ -68,18 +92,25 @@ class client{
 		my_request_say->req_type = REQ_SAY;
 		strcpy(my_request_say->req_channel,myActiveChannel.c_str());
 		strcpy(my_request_say->req_text,textfield.c_str());
-		if (sendto(mySocket, my_request_say, sayRequestSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
-			perror("sending a message to channel  (from client)");
+		send((char*)my_request_say,sayRequestSize,"sending a message to channel  (from client)");
+		//if (sendto(mySocket, my_request_say, sayRequestSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
+		//	perror("sending a message to channel  (from client)");
 	}
-	
+	void send(char* buf,int size,std::string error){
+		if (sendto(mySocket, buf, size, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
+			perror(error.c_str());
+		
+	}
+
+
+
 	void join(std::string channel){
 		truncate(channel,CHANNEL_MAX-1);
 		struct request_join* my_request_join= new request_join;
 		my_request_join->req_type = REQ_JOIN;
 		strcpy(my_request_join->req_channel,channel.c_str());
 		myActiveChannel = channel;
-		if (sendto(mySocket, my_request_join, joinLeaveWhoSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
-			perror("sendto request to join from client");
+		send((char*)my_request_join, joinLeaveWhoSize,"sendto request to join from client");
 		delete(my_request_join);
 		
 	}
@@ -88,8 +119,9 @@ class client{
 		struct request_leave* my_request_leave= new request_leave;
 		my_request_leave->req_type = REQ_LEAVE;
 		strcpy(my_request_leave->req_channel,channel.c_str());
-		if (sendto(mySocket, my_request_leave, joinLeaveWhoSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
-			perror("sendto request to join from client");
+		send((char*)my_request_leave,joinLeaveWhoSize,"sendto request to join from client");
+		//if (sendto(mySocket, my_request_leave, joinLeaveWhoSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
+		//	perror("sendto request to join from client");
 		delete(my_request_leave);
 	}	
 	void who(std::string channel){
@@ -100,35 +132,32 @@ class client{
 		my_request_who->req_type = REQ_WHO;
 		strcpy(my_request_who->req_channel,channel.c_str());
 		
-		if (sendto(mySocket, my_request_who, joinLeaveWhoSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
-			perror("requesting who in channel (from client)");
-
-		int bytesRecvd=0;
-		bytesRecvd = recvfrom(mySocket, replyBuffer, BUFFERLENGTH, 0, (struct sockaddr *)&remoteAddress, &addressSize);
-
-		struct text* incoming_text;
-		incoming_text = (struct text*)replyBuffer;
-
-		if (incoming_text->txt_type==TXT_WHO &&  bytesRecvd>=40){
-			struct text_who* incoming_text_who;
-			incoming_text_who = (struct text_who*)replyBuffer;
+		send((char*)my_request_who,joinLeaveWhoSize,"requesting who in channel (from client)");
 		
-			int userNames = incoming_text_who->txt_nusernames;
+		int bytesRecvd=0;
+		bytesRecvd = getServerResponse(false,replyBuffer);
+		if (bytesRecvd>=40){
+			struct text* incoming_text;
+			incoming_text = (struct text*)replyBuffer;
+			if (incoming_text->txt_type==TXT_WHO ){
+				struct text_who* incoming_text_who;
+				incoming_text_who = (struct text_who*)replyBuffer;
 			
-			struct user_info* txt_users;
-			txt_users = (struct user_info*)incoming_text_who->txt_users;
+				int userNames = incoming_text_who->txt_nusernames;
+				
+				struct user_info* txt_users;
+				txt_users = (struct user_info*)incoming_text_who->txt_users;
 
-			std::vector<std::string> listOfUsers;
-			for (int x=0; x<userNames; x++){
-				listOfUsers.push_back(std::string(txt_users[x].us_username));
+				std::vector<std::string> listOfUsers;
+				for (int x=0; x<userNames; x++){
+					listOfUsers.push_back(std::string(txt_users[x].us_username));
+				}
+				
+				std::cerr<<"Users on channel "<<channel<<":"<<std::endl;
+				for (std::vector<std::string>::iterator iter = listOfUsers.begin(); iter != listOfUsers.end(); ++iter) {
+					std::cerr << " "<<*iter << std::endl;
+				}
 			}
-			
-			std::cerr<<"Users on channel "<<channel<<":"<<std::endl;
-			for (std::vector<std::string>::iterator iter = listOfUsers.begin(); iter != listOfUsers.end(); ++iter) {
-				std::cerr << " "<<*iter << std::endl;
-			}
-			
-
 		}
 		delete(my_request_who);
 	}
@@ -136,7 +165,6 @@ class client{
 
 	client(){
 		mySocket=0;
-		//sockaddr_in remoteAddress;
 		addressSize=0;
 		userName="";		
 		bytesRecvd=0;
@@ -153,7 +181,6 @@ class client{
 			std::cerr << "socket created\n";
 			
 		}
-		//char myBuffer[BUFFERLENGTH];
 		memset((char *) &remoteAddress, 0, sizeof(remoteAddress));
 		remoteAddress.sin_family = AF_INET;
 		remoteAddress.sin_port = htons(THEPORT);
@@ -170,22 +197,32 @@ int main (int argc, char *argv[]){
 	client* thisClient = new client("Bobby Joeleine Smith4357093487509384750938475094387509348750439875430987435","127.0.0.1");
 	thisClient->login();
 	thisClient->join("Common");
-	//thisClient->say("wazzup?");
+	thisClient->say("wazzup?");
 
 	thisClient->requestChannels();
-	//thisClient->join("newChannel");
-	//thisClient->say("hello?");
+	thisClient->join("newChannel");
+	thisClient->say("hello?");
 	thisClient->who("Common");
 	//thisClient->leave("newChannel");
 	/*thisClient->join("newChannel");
+//plan get non blocking exitable loop going to wait for chat messages, and build console on top
+	 let's functionize stuff first*/
 
-	
+	/*
+	bool running = true;
+	while (running){
+
+		sleep(1);
+
+	}*/
+
+
 	
 	//thisClient->join("anotherChannel");
 	//thisClient->join("newChannel");
-	thisClient->join("newChannelasfdkjh122342adskfj1111112");//ERRORS maybe client side
-	thisClient->leave("newChannelasfdkjh122342adskfj1111112");//ERRORS maybe client side
-*/
+//	thisClient->join("newChannelasfdkjh122342adskfj1111112");//ERRORS maybe client side
+//	thisClient->leave("newChannelasfdkjh122342adskfj1111112");//ERRORS maybe client side
+
 	/*	thisClient->join("newChannelasfdkjhlkadf");
 	thisClient->join("newChannel32432423423");
 	thisClient->join("newChannel");
@@ -203,4 +240,5 @@ int main (int argc, char *argv[]){
 
 	
 }
+
 
