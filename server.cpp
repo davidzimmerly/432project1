@@ -187,13 +187,6 @@ class server{
 		     			//now want to check if user is subscribed to channel
 		     				if (findStringPositionInVector(currentUsers[userSlot].myChannels,channel)>-1)
 		     					currentUsers[userSlot].myActiveChannel = channel;
-		
-		     			//	std::string userName=currentUsers[userSlot].myUserName;
-		     			//	std::cerr << "say request received from "<< "userName: " <<userName << "for channel " << channelToAnnounce << std::endl;
-			     		//	std::cerr <<"msg: "<< textField << std::endl;
-			     			//now need to find all users of this channel (maybe a function for this?)
-			     			// (not a problem) but figure out how to deliver them***********8*****
-
 						}
 					}
 					else if (identifier == REQ_LIST && bytesRecvd==logoutListSize){//list of channels
@@ -205,8 +198,10 @@ class server{
 						for (unsigned int x=0; x<channelList.size(); x++){
 							strcpy(my_text_list->txt_channels[x].ch_channel,channelList[x].myChannelName.c_str());
 						}
-						if (sendto(mySocket, my_text_list, reserveSize, 0, (struct sockaddr *)&remoteAddress, remoteIPAddressSize)==-1)
+						if (sendto(mySocket, my_text_list, reserveSize, 0, (struct sockaddr *)&remoteAddress, remoteIPAddressSize)==-1){
 							perror("server sending channel list error");
+							exit(-1);
+						}
 						free(my_text_list);
 					}
 					else if (identifier == REQ_WHO && bytesRecvd==joinLeaveWhoSize){//list of people on certain channel
@@ -235,8 +230,10 @@ class server{
 							for (unsigned int x=0; x<channelList[position].myUsers.size(); x++){
 								strcpy(my_text_who->txt_users[x].us_username,channelList[position].myUsers[x].c_str());
 							}
-							if (sendto(mySocket, my_text_who, reserveSize, 0, (struct sockaddr *)&remoteAddress, remoteIPAddressSize)==-1)
+							if (sendto(mySocket, my_text_who, reserveSize, 0, (struct sockaddr *)&remoteAddress, remoteIPAddressSize)==-1){
 								perror("server sending who is error");
+								exit(-1);
+							}
 						}
 						
 					}
@@ -273,7 +270,7 @@ class server{
 			mySocket=socket(AF_INET, SOCK_DGRAM, 0);
 			if (mySocket<0) {
 				perror ("socket() failed");
-				exit(1);
+				exit(-1);
 			}
 			struct channelInfo newChannel;
 			newChannel.myChannelName = "Common";
@@ -287,10 +284,10 @@ class server{
 			//printf("%s\n",inet_ntoa(myAddress.sin_addr));
 			if (bind(mySocket, (struct sockaddr *)&myAddress, sizeof(myAddress)) < 0) {
 				perror("bind failed");
-				exit(1);
+				exit(-1);
 			}
-			else
-				serve();
+			
+			serve();
 		}
 };
 

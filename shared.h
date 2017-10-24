@@ -6,6 +6,8 @@
 #include <iostream>
 #include <unistd.h> /* close */
 #include <vector>
+#include <termios.h>
+
 
 const int loginSize = 36;
 const int joinLeaveWhoSize = 36;
@@ -36,7 +38,6 @@ int findStringPositionInVector(std::vector<std::string> inputV, std::string inpu
 	return found;
 }		
 
-
 struct channelInfo
 {
 	std::string myChannelName;
@@ -44,14 +45,24 @@ struct channelInfo
 	
 };
 
-void truncate(std::string& input, unsigned int max){
+int findChannelInfoPositionInVector(std::vector<channelInfo> inputV, std::string inputS){
+	int found = -1;
+	for (unsigned int x=0; x<inputV.size(); x++) {
+		
+		if (inputV[x].myChannelName==inputS){
+			found=x;
+			break;
+		}
+	}
+	return found;
+}		
 
+void truncate(std::string& input, unsigned int max){
 	if (input.length()>max) //format input if too big
 		input = input.substr(0,max);
 }
 
 
-#include <termios.h>
 #include "raw.h"
 
 /* See raw.h for usage information */

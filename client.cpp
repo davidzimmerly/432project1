@@ -29,20 +29,16 @@ class client{
 		//assuming you have checked size of response first so it matches one of the types (need function to check this)
 		struct text* incoming_text;
 		incoming_text = (struct text*)replyBuffer;
-		
 		if (incoming_text->txt_type==TXT_LIST &&  bytesRecvd>=32){
 			struct text_list* incoming_text_list;
 			incoming_text_list = (struct text_list*)replyBuffer;
-			
 			int channels = incoming_text_list->txt_nchannels;
 			struct channel_info* txt_channels;
 			txt_channels = (struct channel_info*)incoming_text_list->txt_channels;
-
 			std::vector<std::string> listOfChannels;
 			for (int x=0; x<channels; x++){
 				listOfChannels.push_back(std::string(txt_channels[x].ch_channel));
 			}
-			
 			std::cerr<<"Existing channels:"<<std::endl;
 			for (std::vector<std::string>::iterator iter = listOfChannels.begin(); iter != listOfChannels.end(); ++iter) {
 				std::cerr << " "<<*iter << std::endl;
@@ -52,17 +48,14 @@ class client{
 		else if (incoming_text->txt_type==TXT_WHO && bytesRecvd>=40){
 			struct text_who* incoming_text_who;
 			incoming_text_who = (struct text_who*)replyBuffer;
-		
 			int userNames = incoming_text_who->txt_nusernames;
 			std::string channel = std::string(incoming_text_who->txt_channel);
 			struct user_info* txt_users;
 			txt_users = (struct user_info*)incoming_text_who->txt_users;
-
 			std::vector<std::string> listOfUsers;
 			for (int x=0; x<userNames; x++){
 				listOfUsers.push_back(std::string(txt_users[x].us_username));
 			}
-			
 			std::cerr<<"Users on channel "<<channel<<":"<<std::endl;
 			for (std::vector<std::string>::iterator iter = listOfUsers.begin(); iter != listOfUsers.end(); ++iter) {
 				std::cerr << " "<<*iter << std::endl;
@@ -71,25 +64,13 @@ class client{
 		else if (incoming_text->txt_type==TXT_SAY/* &&  bytesRecvd==sayRequestSize*/){
 			struct text_say* incoming_text_say;
 			incoming_text_say = (struct text_say*)replyBuffer;
-			
 			std::string channel = incoming_text_say->txt_channel;
 			std::string userName= incoming_text_say->txt_username;
 			std::string message= incoming_text_say->txt_text;
-
 			std::cerr<<"["<<channel<<"]["<<userName<<"]: "<<message<<std::endl;
 			return TXT_SAY;
 		}
-		
 	
-
-
-
-
-
-
-		
-
-
 		return 0;
 	}
 
@@ -100,15 +81,11 @@ class client{
 		strcpy(my_request_login->req_username,userName.c_str());
 		send((char*)my_request_login,loginSize,"sendto login");
 		delete(my_request_login);
-		
 	}
 	void logout(){
-		//std::cerr << "Logging Out " << userName << " ..." ;
 		struct request_logout* my_request_logout= new request_logout;
 		my_request_logout->req_type = REQ_LOGOUT;
 		send((char*)my_request_logout,logoutListSize,"sendto logout");
-		//if (sendto(mySocket, my_request_logout, logoutListSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
-		//	perror("sendto logout");
 		close(mySocket);
 		delete(my_request_logout);
 	}
@@ -118,14 +95,8 @@ class client{
 		struct request_list* my_request_list= new request_list;
 		my_request_list->req_type = REQ_LIST;
 		send((char*)my_request_list,logoutListSize,"client requesting channels");
-		//if (sendto(mySocket, my_request_list, logoutListSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
-		//	perror("client requesting channels");
-		//int bytesRecvd=0;
-		//bytesRecvd = 
 		getServerResponse(false,replyBuffer);
-		//handleServerResponse(replyBuffer,bytesRecvd);
 		delete(my_request_list);
-
 	}
 	void say(std::string textfield){
 		truncate(textfield,SAY_MAX-1);
@@ -134,111 +105,50 @@ class client{
 		strcpy(my_request_say->req_channel,myActiveChannel.c_str());
 		strcpy(my_request_say->req_text,textfield.c_str());
 		send((char*)my_request_say,sayRequestSize,"sending a message to channel  (from client)");
-		//if (sendto(mySocket, my_request_say, sayRequestSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
-		//	perror("sending a message to channel  (from client)");
 	}
 	void send(char* buf,int size,std::string error){
-		if (sendto(mySocket, buf, size, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
+		if (sendto(mySocket, buf, size, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1){
 			perror(error.c_str());
-		
+			exit(-1);
+		}
 	}
 	void switchChannel(std::string channel){
 		truncate(channel,CHANNEL_MAX-1);
 		struct request_switch* my_request_switch = new request_switch;
 		my_request_switch->req_type = REQ_SWITCH;
 		strcpy(my_request_switch->req_channel,channel.c_str());
-		
-		/*bool found = false;
-		for (std::vector<std::string>::iterator iter = myChannels.begin(); iter != myChannels.end(); ++iter) {
-			std::string temp = *iter;
-			if (channel==temp){
-				found=true;
-				break;
-			}
-		}*/
-
 		if (findStringPositionInVector(myChannels,channel)>-1)
 			myActiveChannel = channel;
 		send((char*)my_request_switch, joinLeaveWhoSize,"sendto request to join from client");
 		delete(my_request_switch);
-		
 	}
-	
-
-
 	void join(std::string channel){
 		truncate(channel,CHANNEL_MAX-1);
 		struct request_join* my_request_join= new request_join;
 		my_request_join->req_type = REQ_JOIN;
 		strcpy(my_request_join->req_channel,channel.c_str());
 		myActiveChannel = channel;
-		
-		//if (findStringPositionInVector(myChannels,channel)>-1)
-		
-
-		/*bool found = false;
-		for (std::vector<std::string>::iterator iter = myChannels.begin(); iter != myChannels.end(); ++iter) {
-			std::string temp = *iter;
-			if (channel==temp){
-				found=true;
-				break;
-			}
-		}*/
 		if (findStringPositionInVector(myChannels,channel)==-1)
 			myChannels.push_back(channel);
 		send((char*)my_request_join, joinLeaveWhoSize,"sendto request to join from client");
 		delete(my_request_join);
-		
 	}
-
 	void leave(std::string channel){
 		truncate(channel,CHANNEL_MAX-1);
 		struct request_leave* my_request_leave= new request_leave;
 		my_request_leave->req_type = REQ_LEAVE;
 		strcpy(my_request_leave->req_channel,channel.c_str());
 		send((char*)my_request_leave,joinLeaveWhoSize,"sendto request to join from client");
-		//if (sendto(mySocket, my_request_leave, joinLeaveWhoSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1)
-		//	perror("sendto request to join from client");
 		delete(my_request_leave);
 	}	
 	void who(std::string channel){
 		truncate(channel,CHANNEL_MAX-1);
 		char replyBuffer[BUFFERLENGTH];
-		
 		struct request_who* my_request_who= new request_who;
 		my_request_who->req_type = REQ_WHO;
 		strcpy(my_request_who->req_channel,channel.c_str());
-		
 		send((char*)my_request_who,joinLeaveWhoSize,"requesting who in channel (from client)");
-		
-		//int bytesRecvd=0;
-		//bytesRecvd = 	
 		getServerResponse(false,replyBuffer);
-		//handleServerResponse(replyBuffer,bytesRecvd);
-
-		/*if (bytesRecvd>=40){
-			struct text* incoming_text;
-			incoming_text = (struct text*)replyBuffer;
-			if (incoming_text->txt_type==TXT_WHO ){
-				struct text_who* incoming_text_who;
-				incoming_text_who = (struct text_who*)replyBuffer;
-			
-				int userNames = incoming_text_who->txt_nusernames;
-				
-				struct user_info* txt_users;
-				txt_users = (struct user_info*)incoming_text_who->txt_users;
-
-				std::vector<std::string> listOfUsers;
-				for (int x=0; x<userNames; x++){
-					listOfUsers.push_back(std::string(txt_users[x].us_username));
-				}
-				
-				std::cerr<<"Users on channel "<<channel<<":"<<std::endl;
-				for (std::vector<std::string>::iterator iter = listOfUsers.begin(); iter != listOfUsers.end(); ++iter) {
-					std::cerr << " "<<*iter << std::endl;
-				}
-			}
-		}*/
 		delete(my_request_who);
 	}
 
@@ -326,13 +236,6 @@ int main (int argc, char *argv[]){
 
 	//thisClient->requestChannels();
 	thisClient->logout();
-	
-	
-	
 	delete(thisClient);
 	return 0;
-
-	
 }
-
-
