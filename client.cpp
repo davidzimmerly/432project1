@@ -26,7 +26,7 @@ class client{
 		}
 		else return 0;
 	}
-	int handleServerResponse(char* replyBuffer,int bytesRecvd){
+	void handleServerResponse(char* replyBuffer,int bytesRecvd){
 		//assuming you have checked size of response first so it matches one of the types (need function to check this)
 		struct text* incoming_text;
 		incoming_text = (struct text*)replyBuffer;
@@ -44,7 +44,7 @@ class client{
 			for (std::vector<std::string>::iterator iter = listOfChannels.begin(); iter != listOfChannels.end(); ++iter) {
 				std::cerr << " "<<*iter << std::endl;
 			}
-			return TXT_LIST;
+			
 		}
 		else if (incoming_text->txt_type==TXT_WHO && bytesRecvd>=40){
 			struct text_who* incoming_text_who;
@@ -69,10 +69,10 @@ class client{
 			std::string userName= incoming_text_say->txt_username;
 			std::string message= incoming_text_say->txt_text;
 			std::cerr<<"["<<channel<<"]["<<userName<<"]: "<<message<<std::endl;
-			return TXT_SAY;
+			
 		}
 	
-		return 0;
+		
 	}
 
 	void login(){
@@ -185,13 +185,13 @@ class client{
 
 	}
 
-	int parseCommand(std::string buffer){
+	bool parseCommand(std::string buffer){
 		std::istringstream iss(buffer);
 	    std::string command,parameter;
-	    int running = 2;
+	    bool running = true;
 	    if(iss >> command) {
 	       if (command=="/exit"){
-	           return 1;
+	           running = false;
 	       }
 	       else if (command=="/join"){
 	       	   	if (iss>>parameter){
@@ -221,10 +221,10 @@ class client{
 	       }
 	       else{
 	       		say(buffer);
-	       		return 3;
+	       		
 	       }
 	    }
-	    return 42*running;
+	    return running;
 	    
 	    
 	}
@@ -252,16 +252,16 @@ int main (int argc, char *argv[]){
 		        	int bytesRecvd = thisClient->getServerResponse(true,replyBuffer);
 					if (bytesRecvd>0){
 						std::cerr<<'\b';
-						int ret =0;
-						ret = thisClient->handleServerResponse(replyBuffer,bytesRecvd);
-						std::cerr << "returned : "<<(int)ret<<std::endl;//exit keeps returning wrong idk, time for bed
+						
+						thisClient->handleServerResponse(replyBuffer,bytesRecvd);
+						//std::cerr << "returned : "<<ret<<std::endl;//exit keeps returning wrong idk, time for bed
 						//running = !running2;//???? function return was incorrect somehow?? switching fixed
 					}
 		        }
 		        if (FD_ISSET (STDIN_FILENO, &readfds)){
 		        	std::string buffer;
 		        	getline(std::cin,buffer);
-    				thisClient->parseCommand(buffer);
+    				running = thisClient->parseCommand(buffer);
 
 					FD_CLR(STDIN_FILENO,&readfds);
 		        }
