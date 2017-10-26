@@ -7,7 +7,7 @@
 #include <unistd.h> /* close */
 #include <vector>
 #include <termios.h>
-
+#include <sstream>
 
 const int loginSize = 36;
 const int joinLeaveWhoSize = 36;
@@ -92,7 +92,7 @@ int raw_mode (void)
     if (tcgetattr(STDIN_FILENO, &term) != 0) return -1;
 
     oldterm = term;     
-    term.c_lflag &= ~(ECHO);    /* Turn off echoing of typed charaters */
+    //term.c_lflag &= ~(ECHO);    /* Turn off echoing of typed charaters */
     term.c_lflag &= ~(ICANON);  /* Turn off line-based input */
     term.c_cc[VMIN] = 1;
     term.c_cc[VTIME] = 0;

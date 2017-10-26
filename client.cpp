@@ -3,7 +3,7 @@
 
 class client{
 	private:
-		int mySocket;
+		
 		struct sockaddr_in remoteAddress;
 		struct sockaddr_in myAddress;
 		socklen_t addressSize;
@@ -14,6 +14,7 @@ class client{
 		std::vector<std::string> myChannels;
 
 	public:
+	int mySocket;
 	int getServerResponse(bool nonblocking, char* replyBuffer){
 		int flag = 0;
 		if (nonblocking)
@@ -95,7 +96,8 @@ class client{
 		struct request_list* my_request_list= new request_list;
 		my_request_list->req_type = REQ_LIST;
 		send((char*)my_request_list,logoutListSize,"client requesting channels");
-		getServerResponse(false,replyBuffer);
+		int bytesRecvd = getServerResponse(false,replyBuffer);
+		handleServerResponse(replyBuffer,bytesRecvd);
 		delete(my_request_list);
 	}
 	void say(std::string textfield){
@@ -148,7 +150,8 @@ class client{
 		my_request_who->req_type = REQ_WHO;
 		strcpy(my_request_who->req_channel,channel.c_str());
 		send((char*)my_request_who,joinLeaveWhoSize,"requesting who in channel (from client)");
-		getServerResponse(false,replyBuffer);
+		int bytesRecvd = getServerResponse(false,replyBuffer);
+		handleServerResponse(replyBuffer,bytesRecvd);
 		delete(my_request_who);
 	}
 
@@ -181,60 +184,89 @@ class client{
 		myActiveChannel="";
 
 	}
+
+	int parseCommand(std::string buffer){
+		std::istringstream iss(buffer);
+	    std::string command,parameter;
+	    int running = 2;
+	    if(iss >> command) {
+	       if (command=="/exit"){
+	           return 1;
+	       }
+	       else if (command=="/join"){
+	       	   	if (iss>>parameter){
+	       	   		join(parameter);
+	       	   }
+	       }
+	       else if (command=="/leave"){
+	       	   if (iss>>parameter){
+	       	   		leave(parameter);
+	       	   }
+	       }
+	       else if (command=="/list"){
+	           requestChannels();
+	       }
+	       else if (command=="/who"){
+	       	   if (iss>>parameter){
+	       	   		who(parameter);
+	       	   }
+	       }
+	       else if (command=="/switch"){
+	       	   if (iss>>parameter){
+	       	   		switchChannel(parameter);
+	       	   }
+	       }
+	       else if (command[0]=='/'){
+	       		std::cerr << "*Unknown command" << std::endl;
+	       }
+	       else{
+	       		say(buffer);
+	       		return 3;
+	       }
+	    }
+	    return 42*running;
+	    
+	    
+	}
 };
 
 int main (int argc, char *argv[]){
-	client* thisClient = new client("Bobby Joeleine Smith4357093487509384750938475094387509348750439875430987435","127.0.0.1");
+	client* thisClient = new client("Bobby Joeleine Smith4357093487509384750938475094387509348750439875430987435","127.0.0.1");//"128.223.4.39"
 	thisClient->login();
 	thisClient->join("Common");
-	//thisClient->say("wazzup?");
-
-	//thisClient->requestChannels();
-	thisClient->join("newChannel");
-	thisClient->switchChannel("Common");
-	
-	thisClient->say("hello?");
-	//thisClient->who("Common");
-	//thisClient->leave("newChannel");
-	/*thisClient->join("newChannel");
-//plan get non blocking exitable loop going to wait for chat messages, and build console on top
-	 let's functionize stuff first*/
-	char replyBuffer[BUFFERLENGTH];
-	int bytesRecvd=0;
-	
 	bool running = true;
+	std::string command="";
+	raw_mode();
 	while (running){
-		bytesRecvd = thisClient->getServerResponse(true,replyBuffer);
-		if (bytesRecvd>0){
-			std::cerr << "got something i think!"<<std::endl;
-			thisClient->handleServerResponse(replyBuffer,bytesRecvd);
+		std::cerr<<">";
+		char replyBuffer[BUFFERLENGTH];
+		int err;
+		fd_set readfds;
+		FD_ZERO (&readfds);
+		FD_SET (thisClient->mySocket, &readfds);
+		FD_SET (STDIN_FILENO, &readfds);
+		err = select (thisClient->mySocket + 1, &readfds, NULL, NULL, NULL);
+		if (err < 0) perror ("select failed");
+		else {
+		        if (FD_ISSET (thisClient->mySocket, &readfds)){
+		        	int bytesRecvd = thisClient->getServerResponse(true,replyBuffer);
+					if (bytesRecvd>0){
+						std::cerr<<'\b';
+						int ret =0;
+						ret = thisClient->handleServerResponse(replyBuffer,bytesRecvd);
+						std::cerr << "returned : "<<(int)ret<<std::endl;//exit keeps returning wrong idk, time for bed
+						//running = !running2;//???? function return was incorrect somehow?? switching fixed
+					}
+		        }
+		        if (FD_ISSET (STDIN_FILENO, &readfds)){
+		        	std::string buffer;
+		        	getline(std::cin,buffer);
+    				thisClient->parseCommand(buffer);
+
+					FD_CLR(STDIN_FILENO,&readfds);
+		        }
 		}
-		//std::string input;
-		//std::cin >> input;
-		/*int c = getchar();
-		raw_mode();
-		if (c=='.')
-			running=false;
-		putchar(c);*/
-		sleep(.1);
-
 	}
-
-
-	
-	//thisClient->join("anotherChannel");
-	//thisClient->join("newChannel");
-//	thisClient->join("newChannelasfdkjh122342adskfj1111112");//ERRORS maybe client side
-//	thisClient->leave("newChannelasfdkjh122342adskfj1111112");//ERRORS maybe client side
-
-	/*	thisClient->join("newChannelasfdkjhlkadf");
-	thisClient->join("newChannel32432423423");
-	thisClient->join("newChannel");
-	thisClient->join("newChannel");
-	thisClient->join("newChannel");
-	thisClient->join("newChannel");*/
-
-	//thisClient->requestChannels();
 	thisClient->logout();
 	delete(thisClient);
 	return 0;
