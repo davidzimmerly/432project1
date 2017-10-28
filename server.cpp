@@ -21,7 +21,7 @@ class server{
 			return userSlot;		     			
 		}
 
-		void sendMessage(std::string fromUser, int userSlot, std::string toChannel, std::string message){
+		void sendMessage(std::string fromUser, std::string toChannel, std::string message){
 			//could probably recast the buffer instead of remaking it..
 			int channelSlot = findChannelInfoPositionInVector(channelList,toChannel);
 			if (channelSlot>-1){
@@ -29,12 +29,15 @@ class server{
 				std::vector<std::string> listOfUsers = channelList[channelSlot].myUsers;
 				std::vector<std::string> listOfIPs;
 				std::vector<int> listOfPorts;
-				for(unsigned int x =0 ; x < listOfUsers.size(); x++){
-					int position = findUserInfoPositionInVector(currentUsers,listOfUsers[x]);
-					if (position>-1){
-						listOfIPs.push_back(currentUsers[position].myIPAddress);
-						listOfPorts.push_back(currentUsers[position].myPort);
-					}
+				int size = listOfUsers.size();
+				for(int x =0 ; x < size; x++){
+					//if (x!=userSlot){
+						int position = findUserInfoPositionInVector(currentUsers,listOfUsers[x]);
+						if (position>-1){
+							listOfIPs.push_back(currentUsers[position].myIPAddress);
+							listOfPorts.push_back(currentUsers[position].myPort);
+						}
+					//}
 				}
 				//create text_say
 				struct text_say* my_text_say= new text_say;
@@ -48,7 +51,7 @@ class server{
 						remoteAddress.sin_family = AF_INET;
 						remoteAddress.sin_port = htons(listOfPorts[x]);
 						remoteAddress.sin_addr.s_addr = inet_addr(listOfIPs[x].c_str());\
-						
+						std::cerr<< "sending mail to "<<listOfUsers[x]<<" at ip "<<listOfIPs[x]<< " on port "<< listOfPorts[x]<<std::endl;
 						if (sendto(mySocket, (char*)my_text_say, saySize, 0, (struct sockaddr *)&remoteAddress, sizeof(remoteAddress))==-1){
 							perror("server sending mail to multiple users");
 							exit(-1);
@@ -114,7 +117,7 @@ class server{
 					std::string channelToJoin = std::string(incoming_join_request->req_channel);
 					int userSlot = findUserSlot(remoteIPAddress);
 
-	     			if (userSlot>=0){//user found
+	     			if (userSlot>=0){//user found in macro collection
 	     				std::string userName = currentUsers[userSlot].myUserName;
      					bool channelFound=false;
      					int position =-1;
@@ -141,10 +144,11 @@ class server{
 							}
 							if (!userFound){
 								channelList[position].myUsers.push_back(userName);
+								std::cerr << "server: " << userName <<" joins channel " << channelToJoin <<std::endl;
 							}
 	     				}
      					currentUsers[userSlot].myActiveChannel = channelToJoin;
-     					std::cerr << "server: " << userName <<" joins channel " << channelToJoin <<std::endl;
+     					
 	     			
 	     			
 		     		}
@@ -192,7 +196,7 @@ class server{
 	     			}
 				}
 				else if (identifier == REQ_SAY && bytesRecvd==sayRequestSize){//say request
-					std::cerr << "detected say request "<< std::endl;
+					//std::cerr << "detected say request "<< std::endl;
 		     			
 					struct request_say* incoming_request_say;
 					incoming_request_say = (struct request_say*)myBuffer;
@@ -202,11 +206,11 @@ class server{
 					
 	     			if (userSlot>=0){//user found
 	     				std::string userName=currentUsers[userSlot].myUserName;
-	     				std::cerr << "say request received from "<< "userName: " <<userName << "for channel " << channelToAnnounce << std::endl;
-		     			std::cerr <<"msg: "<< textField << std::endl;
-		     			std::cerr <<"about to run sendMessage "<< std::endl;
+	     				//std::cerr << "say request received from "<< "userName: " <<userName << "for channel " << channelToAnnounce << std::endl;
+		     			//std::cerr <<"msg: "<< textField << std::endl;
+		     			//std::cerr <<"about to run sendMessage "<< std::endl;
 		     			
-		     			sendMessage(userName, userSlot, channelToAnnounce, textField);
+		     			sendMessage(userName, channelToAnnounce, textField);
 
 					}
 				}
@@ -281,8 +285,8 @@ class server{
 			while(true) {
 				int bytesRecvd = 0;
 				char myBuffer[BUFFERLENGTH];
-				
-				printf("waiting on port %d\n", THEPORT);
+				std::cerr <<"bound IP address:" << myDomain << " waiting on Port: "<< myPort <<std::endl;
+				//printf("waiting on port %d\n", port.c_str);
 				bytesRecvd = recvfrom(mySocket, myBuffer, BUFFERLENGTH, 0, (struct sockaddr *)&remoteAddress, &addressSize);
 				
 				printf("received %d bytes\n", bytesRecvd);
@@ -291,7 +295,10 @@ class server{
 		}
 		
 	public:
-		server(){
+		std::string myDomain,myPort;
+		server(char* domain, char* port){
+			myDomain = std::string(domain);
+			myPort = std::string(port);
 			addressSize = sizeof(myAddress);
 			bytesRecvd=0;
 			mySocket=socket(AF_INET, SOCK_DGRAM, 0);
@@ -303,9 +310,8 @@ class server{
 			newChannel.myChannelName = "Common";
 			channelList.push_back(newChannel);
 			myAddress.sin_family = AF_INET;
-			myAddress.sin_addr.s_addr = htonl(INADDR_ANY);//inet_addr("128.223.4.39");//
-			
-			myAddress.sin_port = htons(THEPORT);
+			myAddress.sin_addr.s_addr = inet_addr(domain);//htonl(INADDR_ANY);//inet_addr("128.223.4.39");//
+			myAddress.sin_port = htons(std::atoi(port));
 			if (bind(mySocket, (struct sockaddr *)&myAddress, sizeof(myAddress)) < 0) {
 				perror("bind failed");
 				exit(-1);
@@ -315,7 +321,13 @@ class server{
 };
 
 int main (int argc, char *argv[]){
-	server* myServer = new server();
+	if (argc!=3){
+		std::cerr<<"Usage: ./server domain_name port_num"<<std::endl;
+		exit(EXIT_FAILURE);
+	}
+	
+
+	server* myServer = new server(argv[1],argv[2]);
 	delete(myServer);
 	return 0;
 }

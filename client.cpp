@@ -7,8 +7,9 @@ class client{
 		struct sockaddr_in remoteAddress;
 		struct sockaddr_in myAddress;
 		socklen_t addressSize;
-		std::string userName;
+		std::string myUserName;
 		std::string remoteAddressString;
+		int remotePort;
 		int bytesRecvd;
 		std::string myActiveChannel;
 		std::vector<std::string> myChannels;
@@ -76,10 +77,10 @@ class client{
 	}
 
 	void login(){
-		truncate(userName,CHANNEL_MAX-1);
+		truncate(myUserName,CHANNEL_MAX-1);
 		struct request_login* my_request_login= new request_login;
 		my_request_login->req_type = REQ_LOGIN;
-		strcpy(my_request_login->req_username,userName.c_str());
+		strcpy(my_request_login->req_username,myUserName.c_str());
 		send((char*)my_request_login,loginSize,"sendto login");
 		delete(my_request_login);
 	}
@@ -160,24 +161,24 @@ class client{
 	client(){
 		mySocket=0;
 		addressSize=0;
-		userName="";		
+		myUserName="";		
 		bytesRecvd=0;
 		remoteAddressString="";
 		myActiveChannel="";
 	}
-	client(std::string user_name, std::string serverAddress){
+	client(char* serverAddress, char* serverPort, char* userName){
 		addressSize=sizeof(remoteAddress);
-		userName=user_name;		
+		myUserName=std::string(userName);		
 		bytesRecvd=0;
-		remoteAddressString=serverAddress;
+		remoteAddressString=std::string(serverAddress);
+		remotePort=std::atoi(serverPort);
 		mySocket=socket(AF_INET, SOCK_DGRAM, 0);
 		if (mySocket==-1) {
 			std::cerr << "socket created\n";
 			
 		}
-		//memset((char *) &remoteAddress, 0, sizeof(remoteAddress));
 		remoteAddress.sin_family = AF_INET;
-		remoteAddress.sin_port = htons(THEPORT);
+		remoteAddress.sin_port = htons(remotePort);
 		if (inet_aton(remoteAddressString.c_str(), &remoteAddress.sin_addr)==0) {
 			fprintf(stderr, "inet_aton() failed\n");
 			exit(1);
@@ -222,7 +223,7 @@ class client{
 	       		std::cerr << "*Unknown command" << std::endl;
 	       }
 	       else{
-	       		say(buffer);
+	       			say(buffer);
 	       		
 	       }
 	    }
@@ -233,7 +234,14 @@ class client{
 };
 
 int main (int argc, char *argv[]){
-	client* thisClient = new client("Bobby Joeleine Smith4357093487509384750938475094387509348750439875430987435","127.0.0.1");//"128.223.4.39"
+	if (argc!=4){
+		std::cerr<<"Usage: ./client server_socket server_port username"<<std::endl;
+		exit(EXIT_FAILURE);
+	}
+	
+
+
+	client* thisClient = new client(argv[1],argv[2],argv[3]);
 	thisClient->login();
 	thisClient->join("Common");
 	bool running = true;
@@ -254,7 +262,6 @@ int main (int argc, char *argv[]){
 		        	int bytesRecvd = thisClient->getServerResponse(false,replyBuffer);
 					if (bytesRecvd>0){
 						std::cerr<<'\b';
-						std::cerr<<"got something.."<<std::endl;
 						thisClient->handleServerResponse(replyBuffer,bytesRecvd);
 						
 					}
