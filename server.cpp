@@ -9,11 +9,11 @@ class server{
 		int mySocket;
 		std::vector<userInfo> currentUsers;
 		std::vector<channelInfo> channelList;
-		int findUserSlot(std::string remoteIPAddress){
+		int findUserSlot(std::string remoteIPAddress,int remotePort){
 			int userSlot=-1;
 			int size=currentUsers.size();
 			for (int x=0; x <size; x++){
-				if (remoteIPAddress.compare(currentUsers[x].myIPAddress) == 0){
+				if (remoteIPAddress.compare(currentUsers[x].myIPAddress) == 0 && remotePort==currentUsers[x].myPort){
 					userSlot = x;
 					break;
 				}
@@ -115,9 +115,10 @@ class server{
 					struct request_join* incoming_join_request;
 					incoming_join_request = (struct request_join*)myBuffer;
 					std::string channelToJoin = std::string(incoming_join_request->req_channel);
-					int userSlot = findUserSlot(remoteIPAddress);
+					int userSlot = findUserSlot(remoteIPAddress,remotePort);
 
 	     			if (userSlot>=0){//user found in macro collection
+	     				std::cerr << "found user "<<currentUsers[userSlot].myUserName<<std::endl;
 	     				std::string userName = currentUsers[userSlot].myUserName;
      					bool channelFound=false;
      					int position =-1;
@@ -126,9 +127,11 @@ class server{
 		     					channelFound=true;
 		     					position = x;
 		     					break;
+		     					std::cerr << "found channel "<<channelList[x].myChannelName<<std::endl;
 		     				}
 						}
 		     			if (!channelFound){//if channel not exist, add it
+		     				std::cerr << "channel not found "<<std::endl;
 		     				struct channelInfo newChannel;
 		     				newChannel.myChannelName = channelToJoin;
 		     				newChannel.myUsers.push_back(userName);
@@ -139,7 +142,9 @@ class server{
 							for (unsigned int x=0; x <channelList[position].myUsers.size(); x++){
 								if (userName.compare(channelList[position].myUsers[x]) == 0){
 			     					userFound=true;
+			     					std::cerr << "user already in channel"<<std::endl;
 			     					break;
+
 			     				}
 							}
 							if (!userFound){
@@ -157,7 +162,7 @@ class server{
 					struct request_leave* incoming_leave_request;
 					incoming_leave_request = (struct request_leave*)myBuffer;
 					std::string channelToLeave = std::string(incoming_leave_request->req_channel);
-					int userSlot = findUserSlot(remoteIPAddress);
+					int userSlot = findUserSlot(remoteIPAddress,remotePort);
 					std::string userName = currentUsers[userSlot].myUserName;
 	     			if (userSlot>=0){//user found, erase from inside channel list
 	     				for (unsigned int x=0; x <currentUsers[userSlot].myChannels.size(); x++){
@@ -202,11 +207,11 @@ class server{
 					incoming_request_say = (struct request_say*)myBuffer;
 					std::string channelToAnnounce = std::string(incoming_request_say->req_channel);
 					std::string textField = std::string(incoming_request_say->req_text);						
-					int userSlot = findUserSlot(remoteIPAddress);
-					
+					int userSlot = findUserSlot(remoteIPAddress,remotePort);
+					std::cerr << "userslot=" <<currentUsers.size()<<std::endl;
 	     			if (userSlot>=0){//user found
 	     				std::string userName=currentUsers[userSlot].myUserName;
-	     				//std::cerr << "say request received from "<< "userName: " <<userName << "for channel " << channelToAnnounce << std::endl;
+	     				std::cerr << "say request received from "<< "userName: " <<userName << " for channel " << channelToAnnounce << std::endl;
 		     			//std::cerr <<"msg: "<< textField << std::endl;
 		     			//std::cerr <<"about to run sendMessage "<< std::endl;
 		     			
@@ -219,7 +224,7 @@ class server{
 					incoming_request_switch = (struct request_switch*)myBuffer;
 					std::string channel = std::string(incoming_request_switch->req_channel);
 					
-					int userSlot = findUserSlot(remoteIPAddress);
+					int userSlot = findUserSlot(remoteIPAddress,remotePort);
 					
 	     			if (userSlot>=0){//user found
 	     			//now want to check if user is subscribed to channel
@@ -246,7 +251,7 @@ class server{
 					struct request_who* incoming_request_who;
 					incoming_request_who = (struct request_who*)myBuffer;
 					std::string channelToQuery = std::string(incoming_request_who->req_channel);
-					int userSlot = findUserSlot(remoteIPAddress);
+					int userSlot = findUserSlot(remoteIPAddress,remotePort);;
 					std::string userName = currentUsers[userSlot].myUserName;
 	     			
 
