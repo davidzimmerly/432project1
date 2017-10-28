@@ -1,8 +1,5 @@
 #include "shared.h"
 
-
-
-
 class server{
 	private:
 		struct sockaddr_in myAddress;
@@ -25,96 +22,51 @@ class server{
 		}
 
 		void sendMessage(std::string fromUser, int userSlot, std::string toChannel, std::string message){
-			//find channel slot
-			std::cerr <<"sendMessage called"<<std::endl;
+			//could probably recast the buffer instead of remaking it..
 			int channelSlot = findChannelInfoPositionInVector(channelList,toChannel);
 			if (channelSlot>-1){
-				//get list of users/ips create text say send message
+				//get list of users/ips/ports, create text say, send message
 				std::vector<std::string> listOfUsers = channelList[channelSlot].myUsers;
 				std::vector<std::string> listOfIPs;
+				std::vector<int> listOfPorts;
 				for(unsigned int x =0 ; x < listOfUsers.size(); x++){
 					int position = findUserInfoPositionInVector(currentUsers,listOfUsers[x]);
 					if (position>-1){
 						listOfIPs.push_back(currentUsers[position].myIPAddress);
+						listOfPorts.push_back(currentUsers[position].myPort);
 					}
 				}
 				//create text_say
-				
-				struct request_say* my_request_say= new request_say;
-				my_request_say->req_type = REQ_SAY;
-				strcpy(my_request_say->req_channel,toChannel.c_str());
-				strcpy(my_request_say->req_text,message.c_str());
-				if (listOfUsers.size()==listOfIPs.size()){
-					std::cerr << "listOfUsers(size) "<<listOfUsers.size() <<std::endl;
+				struct text_say* my_text_say= new text_say;
+				my_text_say->txt_type = TXT_SAY;
+				strcpy(my_text_say->txt_channel,toChannel.c_str());
+				strcpy(my_text_say->txt_text,message.c_str());
+				strcpy(my_text_say->txt_username,fromUser.c_str());
+				if (listOfUsers.size()==listOfIPs.size()&&listOfIPs.size()==listOfPorts.size()){
 					for(unsigned int x =0 ; x < listOfUsers.size(); x++){
-						std::cerr << "sending message "<<x <<std::endl;
 						struct sockaddr_in remoteAddress;
-						//struct sockaddr_in myAddress;
-
-						/*int addressSize=sizeof(remoteAddress);*/
-						std::string userName=listOfUsers[x];		
-						std::cerr << "to username: " << listOfUsers[x] << std::endl;
-						std::cerr << "IP : " << listOfIPs[x] << std::endl;
-						
-						//int bytesRecvd=0;
-						std::string remoteAddressString=listOfIPs[x];
-						int mySocket=socket(AF_INET, SOCK_DGRAM, 0);
-						if (mySocket==-1) {
-							std::cerr << "socket created\n";
-							
-						}
-						memset((char *) &remoteAddress, 0, sizeof(remoteAddress));
 						remoteAddress.sin_family = AF_INET;
-						remoteAddress.sin_port = htons(THEPORT);
-						myAddress.sin_addr.s_addr = inet_addr(listOfIPs[x].c_str());//htonl(INADDR_ANY);
-			
-						/*if (inet_aton(remoteAddressString.c_str(), &remoteAddress.sin_addr)==0) {
-							fprintf(stderr, "inet_aton() failed\n");
-							exit(1);
-						}*/
-
-
-						//send stuff
-						if (sendto(mySocket, (char*)my_request_say, sayRequestSize, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1){
+						remoteAddress.sin_port = htons(listOfPorts[x]);
+						remoteAddress.sin_addr.s_addr = inet_addr(listOfIPs[x].c_str());\
+						
+						if (sendto(mySocket, (char*)my_text_say, saySize, 0, (struct sockaddr *)&remoteAddress, sizeof(remoteAddress))==-1){
 							perror("server sending mail to multiple users");
 							exit(-1);
 						}
-
-						//close socket
-						close(mySocket);
-						
-
-
-						
-
 					}
-
-
-		//			if (sendto(mySocket, buf, size, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1){
-		//	perror(error.c_str());
-		//	exit(-1);
-		//}*/
+					
 				}
-
-
-
-				//send mail
-
-
-
-				 	//delete requestsay		
-
+				delete(my_text_say);
 			}
-		
 		}
-		
 
 		void handleRequest(char* myBuffer,int bytesRecvd){
 			if (bytesRecvd >= logoutListSize) {
 				struct request* incoming_request = new request;
 				incoming_request = (struct request*)myBuffer;
 				request_t identifier = incoming_request->req_type;
-				std::string remoteIPAddress=std::string (std::string (inet_ntoa(remoteAddress.sin_addr)));//this looks funny check later
+				std::string remoteIPAddress=inet_ntoa(remoteAddress.sin_addr);
+				int remotePort =htons(remoteAddress.sin_port);
 				socklen_t remoteIPAddressSize = sizeof(remoteAddress);
 				if (identifier == REQ_LOGIN && bytesRecvd==loginSize){//login
 					if (bytesRecvd==loginSize){//checks valid login packet size
@@ -135,6 +87,7 @@ class server{
 			     			userInfo newUser;
 			     			newUser.myUserName = userName;
 			     			newUser.myIPAddress = remoteIPAddress;
+			     			newUser.myPort = remotePort;
 			     			newUser.myChannels.push_back("Common");
 			     			newUser.myActiveChannel = "Common";
 			     			currentUsers.push_back(newUser);
@@ -251,11 +204,10 @@ class server{
 	     				std::string userName=currentUsers[userSlot].myUserName;
 	     				std::cerr << "say request received from "<< "userName: " <<userName << "for channel " << channelToAnnounce << std::endl;
 		     			std::cerr <<"msg: "<< textField << std::endl;
-		     			//now need to find all users of this channel (maybe a function for this?)
-		     			// (not a problem) but figure out how to deliver them***********8*****
 		     			std::cerr <<"about to run sendMessage "<< std::endl;
 		     			
 		     			sendMessage(userName, userSlot, channelToAnnounce, textField);
+
 					}
 				}
 				else if (identifier == REQ_SWITCH && bytesRecvd==logoutListSize){//say request
@@ -312,7 +264,7 @@ class server{
 						for (unsigned int x=0; x<channelList[position].myUsers.size(); x++){
 							strcpy(my_text_who->txt_users[x].us_username,channelList[position].myUsers[x].c_str());
 						}
-						if (sendto(mySocket, my_text_who, reserveSize, 0, (struct sockaddr *)&remoteAddress, remoteIPAddressSize)==-1){
+						if (sendto(mySocket, my_text_who, reserveSize, 0, (struct sockaddr *)&remoteAddress, sizeof(remoteAddress))==-1){
 							perror("server sending who is error");
 							exit(-1);
 						}
@@ -332,8 +284,9 @@ class server{
 				
 				printf("waiting on port %d\n", THEPORT);
 				bytesRecvd = recvfrom(mySocket, myBuffer, BUFFERLENGTH, 0, (struct sockaddr *)&remoteAddress, &addressSize);
+				
 				printf("received %d bytes\n", bytesRecvd);
-				handleRequest(myBuffer,bytesRecvd);
+				handleRequest(myBuffer,bytesRecvd);				
 			}
 		}
 		
@@ -349,25 +302,14 @@ class server{
 			struct channelInfo newChannel;
 			newChannel.myChannelName = "Common";
 			channelList.push_back(newChannel);
-			//channelList.push_back("strange");
-			//channelList.push_back("rare");
-			memset((char *)&myAddress, 0, sizeof(myAddress));
 			myAddress.sin_family = AF_INET;
-			myAddress.sin_addr.s_addr = htonl(INADDR_ANY);//inet_addr("128.223.4.39")
+			myAddress.sin_addr.s_addr = htonl(INADDR_ANY);//inet_addr("128.223.4.39");//
 			
 			myAddress.sin_port = htons(THEPORT);
-			//if (inet_aton(remoteAddressString.c_str(), &remoteAddress.sin_addr)==0) {
-			//	fprintf(stderr, "inet_aton() failed\n");
-			//	exit(-1);
-			//}
-		
-
-			//printf("%s\n",inet_ntoa(myAddress.sin_addr));
 			if (bind(mySocket, (struct sockaddr *)&myAddress, sizeof(myAddress)) < 0) {
 				perror("bind failed");
 				exit(-1);
 			}
-			
 			serve();
 		}
 };

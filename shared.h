@@ -8,11 +8,15 @@
 #include <vector>
 #include <termios.h>
 #include <sstream>
+#include <sys/select.h>
+#include <sys/time.h> //FD_SET, FD_ISSET, FD_ZERO macros
 
 const int loginSize = 36;
 const int joinLeaveWhoSize = 36;
 const int sayRequestSize = 100;
+const int saySize = 132;
 const int logoutListSize = 4;
+const int maxConnections = 256;
 #include "duckchat.h"
 
 #define THEPORT  3264
@@ -24,6 +28,7 @@ struct userInfo
 	std::vector<std::string> myChannels;
 	std::string myActiveChannel;
 	std::string myIPAddress;
+	int myPort;
 };
 
 

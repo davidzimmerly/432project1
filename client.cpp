@@ -62,7 +62,7 @@ class client{
 				std::cerr << " "<<*iter << std::endl;
 			}
 		}
-		else if (incoming_text->txt_type==TXT_SAY/* &&  bytesRecvd==sayRequestSize*/){
+		else if (incoming_text->txt_type==TXT_SAY &&  bytesRecvd==saySize){
 			struct text_say* incoming_text_say;
 			incoming_text_say = (struct text_say*)replyBuffer;
 			std::string channel = incoming_text_say->txt_channel;
@@ -107,9 +107,10 @@ class client{
 		strcpy(my_request_say->req_channel,myActiveChannel.c_str());
 		strcpy(my_request_say->req_text,textfield.c_str());
 		send((char*)my_request_say,sayRequestSize,"sending a message to channel  (from client)");
+
 	}
 	void send(char* buf,int size,std::string error){
-		if (sendto(mySocket, buf, size, 0, (struct sockaddr *)&remoteAddress, addressSize)==-1){
+		if (sendto(mySocket, buf, size, 0, (struct sockaddr *)&remoteAddress, sizeof(remoteAddress))==-1){
 			perror(error.c_str());
 			exit(-1);
 		}
@@ -174,13 +175,14 @@ class client{
 			std::cerr << "socket created\n";
 			
 		}
-		memset((char *) &remoteAddress, 0, sizeof(remoteAddress));
+		//memset((char *) &remoteAddress, 0, sizeof(remoteAddress));
 		remoteAddress.sin_family = AF_INET;
 		remoteAddress.sin_port = htons(THEPORT);
 		if (inet_aton(remoteAddressString.c_str(), &remoteAddress.sin_addr)==0) {
 			fprintf(stderr, "inet_aton() failed\n");
 			exit(1);
 		}
+
 		myActiveChannel="";
 
 	}
@@ -249,13 +251,12 @@ int main (int argc, char *argv[]){
 		if (err < 0) perror ("select failed");
 		else {
 		        if (FD_ISSET (thisClient->mySocket, &readfds)){
-		        	int bytesRecvd = thisClient->getServerResponse(true,replyBuffer);
+		        	int bytesRecvd = thisClient->getServerResponse(false,replyBuffer);
 					if (bytesRecvd>0){
 						std::cerr<<'\b';
-						
+						std::cerr<<"got something.."<<std::endl;
 						thisClient->handleServerResponse(replyBuffer,bytesRecvd);
-						//std::cerr << "returned : "<<ret<<std::endl;//exit keeps returning wrong idk, time for bed
-						//running = !running2;//???? function return was incorrect somehow?? switching fixed
+						
 					}
 		        }
 		        if (FD_ISSET (STDIN_FILENO, &readfds)){
