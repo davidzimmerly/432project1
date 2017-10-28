@@ -247,8 +247,12 @@ int main (int argc, char *argv[]){
 	bool running = true;
 	std::string command="";
 	raw_mode();
+	std::string buffer="";
+	if (buffer==""){
+			std::cerr<<">";//<<buffer;		
+		}
+		
 	while (running){
-		std::cerr<<">";
 		char replyBuffer[BUFFERLENGTH];
 		int err;
 		fd_set readfds;
@@ -261,15 +265,37 @@ int main (int argc, char *argv[]){
 		        if (FD_ISSET (thisClient->mySocket, &readfds)){
 		        	int bytesRecvd = thisClient->getServerResponse(false,replyBuffer);
 					if (bytesRecvd>0){
-						std::cerr<<'\b';
+						for (unsigned int x=0; x <= buffer.size(); x++){
+							std::cerr<<'\b';
+						}
 						thisClient->handleServerResponse(replyBuffer,bytesRecvd);
-						
+						std::cerr<<'>'<<buffer;
 					}
 		        }
 		        if (FD_ISSET (STDIN_FILENO, &readfds)){
-		        	std::string buffer;
-		        	getline(std::cin,buffer);
-    				running = thisClient->parseCommand(buffer);
+		        	
+		        	//getchar();
+		        	char c;
+		        	//std::cerr<<(int)c;
+		        	c = fgetc(stdin);
+		        	if (c=='\n'){
+		        			
+	
+		        		//std::cerr << "parsing command : "<<buffer<<std::endl;
+							        		
+		        		running = thisClient->parseCommand(buffer);
+		        		std::cerr<<'\b';
+		        		std::cerr<<'\b';
+		        		std::cerr<<'>';
+		        		buffer="";
+		        		
+		        		
+		        	}
+		        	else 
+		        		buffer += c;
+		        	//std::cerr << "****************got a char: " << c << std::endl;
+		        	//getline(std::cin,buffer);
+    				//running = thisClient->parseCommand(buffer);
 
 					FD_CLR(STDIN_FILENO,&readfds);
 		        }
