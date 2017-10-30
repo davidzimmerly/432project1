@@ -21,6 +21,27 @@ class server{
 			return userSlot;		     			
 		}
 
+		void sendError(std::string theError, std::string ip, int port){
+			//create error message
+			struct text_error* my_text_error = new text_error;
+			my_text_error->txt_type = TXT_ERROR;
+			strcpy(my_text_error->txt_error,theError.c_str());
+			struct sockaddr_in remoteAddress;
+			remoteAddress.sin_family = AF_INET;
+			remoteAddress.sin_port = htons(port);
+			remoteAddress.sin_addr.s_addr = inet_addr(ip.c_str());\
+			std::cerr<< "sending error to user at ip "<<ip<< " on port "<< port<<std::endl;
+			if (sendto(mySocket, (char*)my_text_error, saySize, 0, (struct sockaddr *)&remoteAddress, sizeof(remoteAddress))==-1){
+				perror("server sending error to  user");
+				exit(-1);
+			}
+			delete(my_text_error);
+		}
+		
+
+
+
+
 		void sendMessage(std::string fromUser, std::string toChannel, std::string message){
 			//could probably recast the buffer instead of remaking it..
 			int channelSlot = findChannelInfoPositionInVector(channelList,toChannel);

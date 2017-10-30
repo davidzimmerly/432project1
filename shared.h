@@ -17,6 +17,7 @@ const int sayRequestSize = 100;
 const int saySize = 132;
 const int logoutListSize = 4;
 const int maxConnections = 256;
+const int errorSize = 68;
 #include "duckchat.h"
 
 #define THEPORT  3264

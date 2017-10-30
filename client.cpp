@@ -1,4 +1,4 @@
-#include "raw.h"
+//#include "raw.h"
 #include "shared.h"
 
 class client{
@@ -72,6 +72,14 @@ class client{
 			std::cerr<<"["<<channel<<"]["<<userName<<"]: "<<message<<std::endl;
 			
 		}
+		else if (incoming_text->txt_type==TXT_ERROR && bytesRecvd==errorSize){
+			struct text_error* incoming_text_error;
+			incoming_text_error = (struct text_error*)replyBuffer;
+			std::string errorMessage= incoming_text_error->txt_error;
+			std::cerr <<"received error message: "<<errorMessage<<std::endl;
+
+		}
+
 	
 		
 	}
