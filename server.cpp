@@ -46,7 +46,7 @@ class server{
 			
 				double seconds = difftime(timeNow,currentUsers[x].lastSeen);
 				//std::cerr << "seconds for user "<<currentUsers[x].myUserName <<" : "<<seconds<<std::endl;
-				if (seconds>=60.0){
+				if (seconds>=120.0){
 					std::cerr << "server logs " <<currentUsers[x].myUserName <<" out during purge." << std::endl;
 		     		
 					currentUsers.erase(currentUsers.begin()+x);
