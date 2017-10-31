@@ -1,5 +1,4 @@
 #include "shared.h"
-
 class server{
 	private:
 		struct sockaddr_in myAddress;
@@ -19,4 +18,3 @@ class server{
 		std::string myDomain,myPort;
 		server(char* domain, char* port);
 };
-

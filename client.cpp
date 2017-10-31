@@ -1,12 +1,10 @@
 #include "client.h"
-
 void client::keepAlive(){
 	struct request_keep_alive* my_request_keep_alive = new request_keep_alive;
 	my_request_keep_alive->req_type = REQ_KEEP_ALIVE;
 	send((char*)my_request_keep_alive,logoutListKeepAliveSize,"keep Alive");
 	delete(my_request_keep_alive);
 }
-
 int client::getServerResponse(bool nonblocking, char* replyBuffer){
 	int flag = 0;
 	if (nonblocking)
@@ -19,7 +17,6 @@ int client::getServerResponse(bool nonblocking, char* replyBuffer){
 	else return 0;
 }
 void client::handleServerResponse(char* replyBuffer,int bytesRecvd){
-	//assuming you have checked size of response first so it matches one of the types (need function to check this)
 	struct text* incoming_text;
 	incoming_text = (struct text*)replyBuffer;
 	if (incoming_text->txt_type==TXT_LIST &&  bytesRecvd>=32){
@@ -69,10 +66,8 @@ void client::handleServerResponse(char* replyBuffer,int bytesRecvd){
 		std::cerr << errorMessage << std::endl;
 		cooked_mode();
 		exit(EXIT_FAILURE);
-
 	}
 }
-
 void client::login(){
 	truncate(myUserName,CHANNEL_MAX-1);
 	struct request_login* my_request_login= new request_login;
@@ -88,7 +83,6 @@ void client::logout(){
 	close(mySocket);
 	delete(my_request_logout);
 }
-
 void client::requestChannels(){
 	char replyBuffer[BUFFERLENGTH];
 	struct request_list* my_request_list= new request_list;
@@ -110,7 +104,7 @@ void client::say(std::string textfield){
 void client::send(char* buf,int size,std::string error){
 	if (sendto(mySocket, buf, size, 0, (struct sockaddr *)&remoteAddress, sizeof(remoteAddress))==-1){
 		perror(error.c_str());
-		exit(-1);
+		exit(EXIT_FAILURE);
 	}
 }
 void client::switchChannel(std::string channel){
@@ -216,4 +210,91 @@ bool client::parseCommand(std::string buffer){
        }
     }
     return running;
+}
+
+int main (int argc, char *argv[]){
+	if (argc!=4){
+		std::cerr<<"Usage: ./client server_socket server_port username"<<std::endl;
+		exit(EXIT_FAILURE);
+	}
+	
+	client* thisClient = new client(argv[1],argv[2],argv[3]);
+	thisClient->login();
+	thisClient->join("Common");
+	bool running = true;
+	std::string command="";
+	raw_mode();
+	std::string buffer="";
+	if (buffer==""){
+			std::cerr<<">";//<<buffer;		
+		}
+	/*time_t now;
+    time(&now);
+ 
+    struct tm beg;
+    beg = *localtime(&now);	*/
+	struct timeval* timeOut=new timeval;
+	while (running){
+		timeOut->tv_sec = 60;
+		timeOut->tv_usec = 0;	
+		
+				
+
+
+		char replyBuffer[BUFFERLENGTH];
+		int err;
+		fd_set readfds;
+		FD_ZERO (&readfds);
+		FD_SET (thisClient->mySocket, &readfds);
+		FD_SET (STDIN_FILENO, &readfds);
+		err = select (thisClient->mySocket + 1, &readfds, NULL, NULL, timeOut);
+		if (err < 0) perror ("select failed");
+		else if (err==0){
+			//time(&now);
+			//double seconds = difftime(now, mktime(&beg));
+			//if (seconds>.0)
+			std::cerr<<"keep alive sent "<<std::endl;
+			thisClient->keepAlive();
+			timeOut->tv_sec = 60;//err=1;
+		}
+		else {
+	        if (FD_ISSET (thisClient->mySocket, &readfds)){
+	        	int bytesRecvd = thisClient->getServerResponse(false,replyBuffer);
+				if (bytesRecvd>0){
+					for (unsigned int x=0; x <= buffer.size(); x++){
+						std::cerr<<'\b';
+					}
+					thisClient->handleServerResponse(replyBuffer,bytesRecvd);
+					std::cerr<<'>'<<buffer;
+				}
+	        }
+	        if (FD_ISSET (STDIN_FILENO, &readfds)){
+	        	char c;
+	        	c = fgetc(stdin);
+	        	if (c=='\n'){//run the command
+	        		std::cerr<<std::endl;
+	        		running = thisClient->parseCommand(buffer);
+	        		std::cerr<<'\b'<<'\b'<<'>';
+	        		buffer="";
+	        	}
+	        	else if (c==127){//backspace
+	        		if (buffer.length()>0){
+	        			std::cerr<<'\b'<<' '<<'\b';
+						buffer=buffer.substr(0,buffer.length()-1);
+					}
+	        	}
+	        	else {//output a character
+	        		buffer += c;
+	        		std::cerr<<c;
+	        	}
+				FD_CLR(STDIN_FILENO,&readfds);
+	        }
+
+		}
+    	
+	}
+	thisClient->logout();
+	delete(thisClient);
+	delete(timeOut);
+	return 0;
 }
