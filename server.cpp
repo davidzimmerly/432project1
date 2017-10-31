@@ -85,7 +85,7 @@ class server{
 		}
 
 		void handleRequest(char* myBuffer,int bytesRecvd){
-			if (bytesRecvd >= logoutListSize) {
+			if (bytesRecvd >= logoutListKeepAliveSize) {
 				struct request* incoming_request = new request;
 				incoming_request = (struct request*)myBuffer;
 				request_t identifier = incoming_request->req_type;
@@ -119,7 +119,7 @@ class server{
 			     		}
 			     	}
 				}
-				else if (identifier == REQ_LOGOUT && bytesRecvd==logoutListSize){//logout
+				else if (identifier == REQ_LOGOUT && bytesRecvd==logoutListKeepAliveSize){//logout
 					if (currentUsers.size()>0) {
 						int size =  currentUsers.size();
 						for (int x=0; x <size; x++){
@@ -241,20 +241,18 @@ class server{
 
 					}
 				}
-				/*else if (identifier == REQ_SWITCH && bytesRecvd==logoutListSize){//say request
-					struct request_switch* incoming_request_switch;
-					incoming_request_switch = (struct request_switch*)myBuffer;
-					std::string channel = std::string(incoming_request_switch->req_channel);
+				else if (identifier == REQ_KEEP_ALIVE && bytesRecvd==logoutListKeepAliveSize){//keep alive
 					
+
+					//struct request_keep_alive* incoming_request_keep_alive;
+					//incoming_request_keep_alive = (struct request_keep_alive*)myBuffer;
 					int userSlot = findUserSlot(remoteIPAddress,remotePort);
 					
 	     			if (userSlot>=0){//user found
-	     			//now want to check if user is subscribed to channel
-	     				if (findStringPositionInVector(currentUsers[userSlot].myChannels,channel)>-1)
-	     					currentUsers[userSlot].myActiveChannel = channel;
-					}//need to send error message back to client : You have not subscribed to channel channel******
-				}*/
-				else if (identifier == REQ_LIST && bytesRecvd==logoutListSize){//list of channels
+	     				std::cerr <<"keep alive from "<< currentUsers[userSlot].myUserName << std::endl;
+	     			}
+				}
+				else if (identifier == REQ_LIST && bytesRecvd==logoutListKeepAliveSize){//list of channels
 					int size = channelList.size();
 					int reserveSize = sizeof(text_list)+sizeof(channel_info)*size-1;
 					struct text_list* my_text_list = (text_list*)malloc(reserveSize);

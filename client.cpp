@@ -86,6 +86,14 @@ class client{
 		
 	}
 
+	void keepAlive(){
+		struct request_keep_alive* my_request_keep_alive = new request_keep_alive;
+		my_request_keep_alive->req_type = REQ_KEEP_ALIVE;
+		send((char*)my_request_keep_alive,logoutListKeepAliveSize,"keep Alive");
+		delete(my_request_keep_alive);
+	
+	}
+
 	void login(){
 		truncate(myUserName,CHANNEL_MAX-1);
 		struct request_login* my_request_login= new request_login;
@@ -97,7 +105,7 @@ class client{
 	void logout(){
 		struct request_logout* my_request_logout= new request_logout;
 		my_request_logout->req_type = REQ_LOGOUT;
-		send((char*)my_request_logout,logoutListSize,"sendto logout");
+		send((char*)my_request_logout,logoutListKeepAliveSize,"sendto logout");
 		close(mySocket);
 		delete(my_request_logout);
 	}
@@ -106,7 +114,7 @@ class client{
 		char replyBuffer[BUFFERLENGTH];
 		struct request_list* my_request_list= new request_list;
 		my_request_list->req_type = REQ_LIST;
-		send((char*)my_request_list,logoutListSize,"client requesting channels");
+		send((char*)my_request_list,logoutListKeepAliveSize,"client requesting channels");
 		int bytesRecvd = getServerResponse(false,replyBuffer);
 		handleServerResponse(replyBuffer,bytesRecvd);
 		delete(my_request_list);
@@ -118,7 +126,6 @@ class client{
 		strcpy(my_request_say->req_channel,myActiveChannel.c_str());
 		strcpy(my_request_say->req_text,textfield.c_str());
 		send((char*)my_request_say,sayRequestSize,"sending a message to channel  (from client)");
-
 	}
 	void send(char* buf,int size,std::string error){
 		if (sendto(mySocket, buf, size, 0, (struct sockaddr *)&remoteAddress, sizeof(remoteAddress))==-1){
@@ -127,19 +134,10 @@ class client{
 		}
 	}
 	void switchChannel(std::string channel){
-		/*truncate(channel,CHANNEL_MAX-1);
-		struct request_switch* my_request_switch = new request_switch;
-		my_request_switch->req_type = REQ_SWITCH;
-		strcpy(my_request_switch->req_channel,channel.c_str());
-		if (findStringPositionInVector(myChannels,channel)>-1)
-			myActiveChannel = channel;
-		send((char*)my_request_switch, joinLeaveWhoSize,"sendto request to join from client");*/
 		if (findStringPositionInVector(myChannels,channel)>-1)
 			myActiveChannel = channel;
 		else
 			std::cerr << "*error, you have not joined channel "<<channel << std::endl;
-
-		//delete(my_request_switch);
 	}
 	void join(std::string channel){
 		truncate(channel,CHANNEL_MAX-1);
@@ -171,8 +169,6 @@ class client{
 		handleServerResponse(replyBuffer,bytesRecvd);
 		delete(my_request_who);
 	}
-
-
 	client(){
 		mySocket=0;
 		addressSize=0;
@@ -190,7 +186,6 @@ class client{
 		mySocket=socket(AF_INET, SOCK_DGRAM, 0);
 		if (mySocket==-1) {
 			std::cerr << "socket created\n";
-			
 		}
 		remoteAddress.sin_family = AF_INET;
 		remoteAddress.sin_port = htons(remotePort);
@@ -198,9 +193,7 @@ class client{
 			fprintf(stderr, "inet_aton() failed\n");
 			exit(1);
 		}
-
 		myActiveChannel="";
-
 	}
 
 	bool parseCommand(std::string buffer){
@@ -243,8 +236,6 @@ class client{
 	       }
 	    }
 	    return running;
-	    
-	    
 	}
 };
 
@@ -288,30 +279,17 @@ int main (int argc, char *argv[]){
 					}
 		        }
 		        if (FD_ISSET (STDIN_FILENO, &readfds)){
-		        	
-		        	//getchar();
 		        	char c;
-		        	//std::cerr<<(int)c;
 		        	c = fgetc(stdin);
 		        	if (c=='\n'){
-		        			
-	
-		        		//std::cerr << "parsing command : "<<buffer<<std::endl;
-							        		
 		        		running = thisClient->parseCommand(buffer);
 		        		std::cerr<<'\b';
 		        		std::cerr<<'\b';
 		        		std::cerr<<'>';
 		        		buffer="";
-		        		
-		        		
 		        	}
 		        	else 
 		        		buffer += c;
-		        	//std::cerr << "****************got a char: " << c << std::endl;
-		        	//getline(std::cin,buffer);
-    				//running = thisClient->parseCommand(buffer);
-
 					FD_CLR(STDIN_FILENO,&readfds);
 		        }
 		}

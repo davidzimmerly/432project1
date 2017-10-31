@@ -15,7 +15,7 @@ const int loginSize = 36;
 const int joinLeaveWhoSize = 36;
 const int sayRequestSize = 100;
 const int saySize = 132;
-const int logoutListSize = 4;
+const int logoutListKeepAliveSize = 4;
 const int maxConnections = 256;
 const int errorSize = 68;
 #include "duckchat.h"
