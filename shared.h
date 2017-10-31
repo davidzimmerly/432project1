@@ -11,6 +11,7 @@
 #include <sys/select.h>
 #include <sys/time.h> //FD_SET, FD_ISSET, FD_ZERO macros
 
+
 const int loginSize = 36;
 const int joinLeaveWhoSize = 36;
 const int sayRequestSize = 100;
@@ -84,10 +85,6 @@ void truncate(std::string& input, unsigned int max){
 }
 
 
-#include "raw.h"
-
-/* See raw.h for usage information */
-
 static struct termios oldterm;
 
 /* Returns -1 on error, 0 on success */
@@ -98,7 +95,7 @@ int raw_mode (void)
     if (tcgetattr(STDIN_FILENO, &term) != 0) return -1;
 
     oldterm = term;     
-    //term.c_lflag &= ~(ECHO);    /* Turn off echoing of typed charaters */
+    term.c_lflag &= ~(ECHO);    /* Turn off echoing of typed charaters */
     term.c_lflag &= ~(ICANON);  /* Turn off line-based input */
     term.c_cc[VMIN] = 1;
     term.c_cc[VTIME] = 0;

@@ -85,7 +85,11 @@ class server{
 		}
 
 		void handleRequest(char* myBuffer,int bytesRecvd){
-			if (bytesRecvd >= logoutListKeepAliveSize) {
+			if (bytesRecvd>=BUFFERLENGTH){
+				std::cerr << "*buffer overflow, ignoring request" << std::endl;
+
+			}
+			else if (bytesRecvd >= logoutListKeepAliveSize) {
 				struct request* incoming_request = new request;
 				incoming_request = (struct request*)myBuffer;
 				request_t identifier = incoming_request->req_type;
