@@ -1,15 +1,6 @@
-#include "shared.h"
+#include "server.h"
 
-class server{
-	private:
-		struct sockaddr_in myAddress;
-		struct sockaddr_in remoteAddress;
-		int bytesRecvd;
-		socklen_t addressSize;
-		int mySocket;
-		std::vector<userInfo> currentUsers;
-		std::vector<channelInfo> channelList;
-		int findUserSlot(std::string remoteIPAddress,int remotePort){
+int server::findUserSlot(std::string remoteIPAddress,int remotePort){
 			int userSlot=-1;
 			int size=currentUsers.size();
 			for (int x=0; x <size; x++){
@@ -21,7 +12,7 @@ class server{
 			return userSlot;		     			
 		}
 
-		void sendError(std::string theError, std::string ip, int port){
+		void server::sendError(std::string theError, std::string ip, int port){
 			//create error message
 			struct text_error* my_text_error = new text_error;
 			my_text_error->txt_type = TXT_ERROR;
@@ -39,7 +30,7 @@ class server{
 		}
 		
 
-		void purgeUsers(){
+		void server::purgeUsers(){
 			//std::cerr << "purgeUsers initiated "<<std::endl;
 			time_t timeNow = time(NULL);
 			for (unsigned int x=0; x<currentUsers.size(); x++){
@@ -61,7 +52,7 @@ class server{
 		}
 
 
-		void sendMessage(std::string fromUser, std::string toChannel, std::string message){
+		void server::sendMessage(std::string fromUser, std::string toChannel, std::string message){
 			//could probably recast the buffer instead of remaking it..
 			int channelSlot = findChannelInfoPositionInVector(channelList,toChannel);
 			if (channelSlot>-1){
@@ -103,7 +94,7 @@ class server{
 			}
 		}
 
-		void handleRequest(char* myBuffer,int bytesRecvd){
+		void server::handleRequest(char* myBuffer,int bytesRecvd){
 			if (bytesRecvd>=BUFFERLENGTH){
 				std::cerr << "*buffer overflow, ignoring request" << std::endl;
 
@@ -329,7 +320,7 @@ class server{
 
 		}
 
-		void serve(){
+		void server::serve(){
 			struct timeval timeOut;
 			timeOut.tv_sec = 120;
 			timeOut.tv_usec = 0;
@@ -364,9 +355,7 @@ class server{
 			}
 		}
 		
-	public:
-		std::string myDomain,myPort;
-		server(char* domain, char* port){
+		server::server(char* domain, char* port){
 			myDomain = std::string(domain);
 			myPort = std::string(port);
 			addressSize = sizeof(myAddress);
@@ -388,7 +377,7 @@ class server{
 			}
 			serve();
 		}
-};
+
 
 int main (int argc, char *argv[]){
 	if (argc!=3){
