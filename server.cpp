@@ -39,7 +39,26 @@ class server{
 		}
 		
 
+		void purgeUsers(){
+			//std::cerr << "purgeUsers initiated "<<std::endl;
+			time_t timeNow = time(NULL);
+			for (unsigned int x=0; x<currentUsers.size(); x++){
+			
+				double seconds = difftime(timeNow,currentUsers[x].lastSeen);
+				//std::cerr << "seconds for user "<<currentUsers[x].myUserName <<" : "<<seconds<<std::endl;
+				if (seconds>=60.0){
+					std::cerr << "server logs " <<currentUsers[x].myUserName <<" out during purge." << std::endl;
+		     		
+					currentUsers.erase(currentUsers.begin()+x);
+		     		if (x+1<=currentUsers.size())//at least one more?  /***this deserves more testing, but seems to work
+		     			x--;
+		     		else
+		     			break;						
+				}
+			}
 
+
+		}
 
 
 		void sendMessage(std::string fromUser, std::string toChannel, std::string message){
@@ -104,8 +123,8 @@ class server{
 					bool addUser = true;
 					if (currentUsers.size()>0) {
 						for (std::vector<userInfo>::iterator iter = currentUsers.begin(); iter != currentUsers.end(); ++iter) {
-		     				if (userName.compare((*iter).myUserName) == 0&&remoteIPAddress.compare((*iter).myIPAddress) == 0/*&&remotePort.compare((*iter).myPort) == 0*/){
-		     					//note this will likely be hard to test with port requirement
+		     				if (userName.compare((*iter).myUserName) == 0&&remoteIPAddress.compare((*iter).myIPAddress) == 0&&remotePort==(*iter).myPort){
+		     					
 		     					sendError("*error , user is already logged in.",remoteIPAddress,remotePort);
 		     					addUser = false;
 		     				}
@@ -118,6 +137,7 @@ class server{
 		     			newUser.myPort = remotePort;
 		     			newUser.myChannels.push_back("Common");
 		     			newUser.myActiveChannel = "Common";
+		     			newUser.lastSeen = time (NULL);
 		     			currentUsers.push_back(newUser);
 		     		}			     	
 				}
@@ -142,7 +162,7 @@ class server{
 					int userSlot = findUserSlot(remoteIPAddress,remotePort);
 
 	     			if (userSlot>=0){//user found in macro collection
-	     				std::cerr << "found user "<<currentUsers[userSlot].myUserName<<std::endl;
+	     				//std::cerr << "found user "<<currentUsers[userSlot].myUserName<<std::endl;
 	     				std::string userName = currentUsers[userSlot].myUserName;
      					bool channelFound=false;
      					int position =-1;
@@ -151,11 +171,11 @@ class server{
 		     					channelFound=true;
 		     					position = x;
 		     					break;
-		     					std::cerr << "found channel "<<channelList[x].myChannelName<<std::endl;
+		     					//std::cerr << "found channel "<<channelList[x].myChannelName<<std::endl;
 		     				}
 						}
 		     			if (!channelFound){//if channel not exist, add it
-		     				std::cerr << "channel not found "<<std::endl;
+		     				//std::cerr << "channel not found "<<std::endl;
 		     				struct channelInfo newChannel;
 		     				newChannel.myChannelName = channelToJoin;
 		     				newChannel.myUsers.push_back(userName);
@@ -166,7 +186,7 @@ class server{
 							for (unsigned int x=0; x <channelList[position].myUsers.size(); x++){
 								if (userName.compare(channelList[position].myUsers[x]) == 0){
 			     					userFound=true;
-			     					std::cerr << "user already in channel"<<std::endl;
+			     					//std::cerr << "user already in channel"<<std::endl;
 			     					break;
 
 			     				}
@@ -232,7 +252,7 @@ class server{
 					std::string channelToAnnounce = std::string(incoming_request_say->req_channel);
 					std::string textField = std::string(incoming_request_say->req_text);						
 					int userSlot = findUserSlot(remoteIPAddress,remotePort);
-					std::cerr << "userslot=" <<currentUsers.size()<<std::endl;
+					//std::cerr << "userslot=" <<currentUsers.size()<<std::endl;
 	     			if (userSlot>=0){//user found
 	     				std::string userName=currentUsers[userSlot].myUserName;
 	     				std::cerr << "say request received from "<< "userName: " <<userName << " for channel " << channelToAnnounce << std::endl;
@@ -252,6 +272,7 @@ class server{
 					
 	     			if (userSlot>=0){//user found
 	     				std::cerr <<"keep alive from "<< currentUsers[userSlot].myUserName << std::endl;
+	     				currentUsers[userSlot].lastSeen = time (NULL);
 	     			}
 				}
 				else if (identifier == REQ_LIST && bytesRecvd==logoutListKeepAliveSize){//list of channels
@@ -310,24 +331,35 @@ class server{
 
 		void serve(){
 			struct timeval timeOut;
-			timeOut.tv_sec = 2;
+			timeOut.tv_sec = 120;
 			timeOut.tv_usec = 0;
 			int error1 = setsockopt(mySocket,SOL_SOCKET,SO_RCVTIMEO,(const char*)&timeOut,sizeof(struct timeval));
 			if (error1<0)
 				std::cerr<<"setsock error";
+			time_t purgeTime = time (NULL);
 			while(true) {
 				int bytesRecvd = 0;
 				char myBuffer[BUFFERLENGTH];
-				std::cerr <<"bound IP address:" << myDomain << " waiting on Port: "<< myPort <<std::endl;
+				//std::cerr <<"bound IP address:" << myDomain << " waiting on Port: "<< myPort <<std::endl;
 				//printf("waiting on port %d\n", port.c_str);
 				bytesRecvd = recvfrom(mySocket, myBuffer, BUFFERLENGTH, 0, (struct sockaddr *)&remoteAddress, &addressSize);
-				if (bytesRecvd<=0){
+				if (bytesRecvd<=0){//never going to happen unless all users stop pinging in
+					time_t timer = time (NULL);
 					std::cerr<<"timeout!";
-					
+					std::cerr << timer;
+					purgeUsers();
+					//check users still valid
 				}
-				if (bytesRecvd>0){
-					printf("received %d bytes\n", bytesRecvd);
-					handleRequest(myBuffer,bytesRecvd);		
+				else if (bytesRecvd>0){
+					//printf("received %d bytes\n", bytesRecvd);
+					handleRequest(myBuffer,bytesRecvd);	
+					time_t checkTime = time(NULL);	
+					double seconds = difftime(purgeTime,checkTime);
+					if (seconds>=120){
+						std::cerr<<"timeout!";
+						purgeUsers();
+						purgeTime = time(NULL);	
+					}
 				}		
 			}
 		}

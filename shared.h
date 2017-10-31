@@ -31,6 +31,7 @@ struct userInfo
 	std::string myActiveChannel;
 	std::string myIPAddress;
 	int myPort;
+	time_t lastSeen;
 };
 
 

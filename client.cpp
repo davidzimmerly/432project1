@@ -252,9 +252,9 @@ int main (int argc, char *argv[]){
     struct tm beg;
     beg = *localtime(&now);	*/
 	struct timeval* timeOut=new timeval;
-	timeOut->tv_sec = 60;
-	timeOut->tv_usec = 0;	
 	while (running){
+		timeOut->tv_sec = 60;
+		timeOut->tv_usec = 0;	
 		
 				
 
