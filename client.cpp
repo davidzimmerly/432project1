@@ -72,11 +72,13 @@ class client{
 			std::cerr<<"["<<channel<<"]["<<userName<<"]: "<<message<<std::endl;
 			
 		}
-		else if (incoming_text->txt_type==TXT_ERROR && bytesRecvd==errorSize){
+		else if (incoming_text->txt_type==TXT_ERROR && bytesRecvd>=errorSize){//packet was 132, expected 68?
 			struct text_error* incoming_text_error;
 			incoming_text_error = (struct text_error*)replyBuffer;
 			std::string errorMessage= incoming_text_error->txt_error;
-			std::cerr <<"received error message: "<<errorMessage<<std::endl;
+			//std::cerr <<"received " << bytesRecvd<<" error message: "<<errorMessage<<std::endl;
+			std::cerr << errorMessage << std::endl;
+			exit(EXIT_FAILURE);
 
 		}
 
@@ -125,14 +127,19 @@ class client{
 		}
 	}
 	void switchChannel(std::string channel){
-		truncate(channel,CHANNEL_MAX-1);
+		/*truncate(channel,CHANNEL_MAX-1);
 		struct request_switch* my_request_switch = new request_switch;
 		my_request_switch->req_type = REQ_SWITCH;
 		strcpy(my_request_switch->req_channel,channel.c_str());
 		if (findStringPositionInVector(myChannels,channel)>-1)
 			myActiveChannel = channel;
-		send((char*)my_request_switch, joinLeaveWhoSize,"sendto request to join from client");
-		delete(my_request_switch);
+		send((char*)my_request_switch, joinLeaveWhoSize,"sendto request to join from client");*/
+		if (findStringPositionInVector(myChannels,channel)>-1)
+			myActiveChannel = channel;
+		else
+			std::cerr << "*error, you have not joined channel "<<channel << std::endl;
+
+		//delete(my_request_switch);
 	}
 	void join(std::string channel){
 		truncate(channel,CHANNEL_MAX-1);

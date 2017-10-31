@@ -101,8 +101,9 @@ class server{
 						bool addUser = true;
 						if (currentUsers.size()>0) {
 							for (std::vector<userInfo>::iterator iter = currentUsers.begin(); iter != currentUsers.end(); ++iter) {
-			     				if (userName.compare((*iter).myUserName) == 0){
-			     					std::cerr<< " error , user is already logged in.";//error message? see what binary does
+			     				if (userName.compare((*iter).myUserName) == 0&&remoteIPAddress.compare((*iter).myIPAddress) == 0/*&&remotePort.compare((*iter).myPort) == 0*/){
+			     					//note this will likely be hard to test with port requirement
+			     					sendError("*error , user is already logged in.",remoteIPAddress,remotePort);
 			     					addUser = false;
 			     				}
 			     			}
@@ -240,7 +241,7 @@ class server{
 
 					}
 				}
-				else if (identifier == REQ_SWITCH && bytesRecvd==logoutListSize){//say request
+				/*else if (identifier == REQ_SWITCH && bytesRecvd==logoutListSize){//say request
 					struct request_switch* incoming_request_switch;
 					incoming_request_switch = (struct request_switch*)myBuffer;
 					std::string channel = std::string(incoming_request_switch->req_channel);
@@ -252,7 +253,7 @@ class server{
 	     				if (findStringPositionInVector(currentUsers[userSlot].myChannels,channel)>-1)
 	     					currentUsers[userSlot].myActiveChannel = channel;
 					}//need to send error message back to client : You have not subscribed to channel channel******
-				}
+				}*/
 				else if (identifier == REQ_LIST && bytesRecvd==logoutListSize){//list of channels
 					int size = channelList.size();
 					int reserveSize = sizeof(text_list)+sizeof(channel_info)*size-1;
