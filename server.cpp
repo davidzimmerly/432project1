@@ -97,31 +97,29 @@ class server{
 				int remotePort =htons(remoteAddress.sin_port);
 				socklen_t remoteIPAddressSize = sizeof(remoteAddress);
 				if (identifier == REQ_LOGIN && bytesRecvd==loginSize){//login
-					if (bytesRecvd==loginSize){//checks valid login packet size
-						struct request_login* incoming_login_request;
-						incoming_login_request = (struct request_login*)myBuffer;
-						std::string userName = std::string(incoming_login_request->req_username);
-						std::cerr << "server: " << userName <<" logs in" << std::endl;
-						bool addUser = true;
-						if (currentUsers.size()>0) {
-							for (std::vector<userInfo>::iterator iter = currentUsers.begin(); iter != currentUsers.end(); ++iter) {
-			     				if (userName.compare((*iter).myUserName) == 0&&remoteIPAddress.compare((*iter).myIPAddress) == 0/*&&remotePort.compare((*iter).myPort) == 0*/){
-			     					//note this will likely be hard to test with port requirement
-			     					sendError("*error , user is already logged in.",remoteIPAddress,remotePort);
-			     					addUser = false;
-			     				}
-			     			}
-			     		}
-			     		if (addUser){
-			     			userInfo newUser;
-			     			newUser.myUserName = userName;
-			     			newUser.myIPAddress = remoteIPAddress;
-			     			newUser.myPort = remotePort;
-			     			newUser.myChannels.push_back("Common");
-			     			newUser.myActiveChannel = "Common";
-			     			currentUsers.push_back(newUser);
-			     		}
-			     	}
+					struct request_login* incoming_login_request;
+					incoming_login_request = (struct request_login*)myBuffer;
+					std::string userName = std::string(incoming_login_request->req_username);
+					std::cerr << "server: " << userName <<" logs in" << std::endl;
+					bool addUser = true;
+					if (currentUsers.size()>0) {
+						for (std::vector<userInfo>::iterator iter = currentUsers.begin(); iter != currentUsers.end(); ++iter) {
+		     				if (userName.compare((*iter).myUserName) == 0&&remoteIPAddress.compare((*iter).myIPAddress) == 0/*&&remotePort.compare((*iter).myPort) == 0*/){
+		     					//note this will likely be hard to test with port requirement
+		     					sendError("*error , user is already logged in.",remoteIPAddress,remotePort);
+		     					addUser = false;
+		     				}
+		     			}
+		     		}
+		     		if (addUser){
+		     			userInfo newUser;
+		     			newUser.myUserName = userName;
+		     			newUser.myIPAddress = remoteIPAddress;
+		     			newUser.myPort = remotePort;
+		     			newUser.myChannels.push_back("Common");
+		     			newUser.myActiveChannel = "Common";
+		     			currentUsers.push_back(newUser);
+		     		}			     	
 				}
 				else if (identifier == REQ_LOGOUT && bytesRecvd==logoutListKeepAliveSize){//logout
 					if (currentUsers.size()>0) {
