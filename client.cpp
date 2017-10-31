@@ -226,21 +226,12 @@ int main (int argc, char *argv[]){
 	raw_mode();
 	std::string buffer="";
 	if (buffer==""){
-			std::cerr<<">";//<<buffer;		
+			std::cerr<<">";
 		}
-	/*time_t now;
-    time(&now);
- 
-    struct tm beg;
-    beg = *localtime(&now);	*/
 	struct timeval* timeOut=new timeval;
 	while (running){
 		timeOut->tv_sec = 60;
-		timeOut->tv_usec = 0;	
-		
-				
-
-
+		timeOut->tv_usec = 0;
 		char replyBuffer[BUFFERLENGTH];
 		int err;
 		fd_set readfds;
@@ -250,12 +241,9 @@ int main (int argc, char *argv[]){
 		err = select (thisClient->mySocket + 1, &readfds, NULL, NULL, timeOut);
 		if (err < 0) perror ("select failed");
 		else if (err==0){
-			//time(&now);
-			//double seconds = difftime(now, mktime(&beg));
-			//if (seconds>.0)
 			std::cerr<<"keep alive sent "<<std::endl;
 			thisClient->keepAlive();
-			timeOut->tv_sec = 60;//err=1;
+			timeOut->tv_sec = 60;
 		}
 		else {
 	        if (FD_ISSET (thisClient->mySocket, &readfds)){
@@ -289,9 +277,7 @@ int main (int argc, char *argv[]){
 	        	}
 				FD_CLR(STDIN_FILENO,&readfds);
 	        }
-
-		}
-    	
+		}    	
 	}
 	thisClient->logout();
 	delete(thisClient);
