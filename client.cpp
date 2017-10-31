@@ -253,7 +253,7 @@ int main (int argc, char *argv[]){
     beg = *localtime(&now);	*/
 	struct timeval* timeOut=new timeval;
 	timeOut->tv_sec = 60;
-	//timeOut->tv_usec = 0;	
+	timeOut->tv_usec = 0;	
 	while (running){
 		
 				

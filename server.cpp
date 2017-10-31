@@ -309,15 +309,26 @@ class server{
 		}
 
 		void serve(){
+			struct timeval timeOut;
+			timeOut.tv_sec = 2;
+			timeOut.tv_usec = 0;
+			int error1 = setsockopt(mySocket,SOL_SOCKET,SO_RCVTIMEO,(const char*)&timeOut,sizeof(struct timeval));
+			if (error1<0)
+				std::cerr<<"setsock error";
 			while(true) {
 				int bytesRecvd = 0;
 				char myBuffer[BUFFERLENGTH];
 				std::cerr <<"bound IP address:" << myDomain << " waiting on Port: "<< myPort <<std::endl;
 				//printf("waiting on port %d\n", port.c_str);
 				bytesRecvd = recvfrom(mySocket, myBuffer, BUFFERLENGTH, 0, (struct sockaddr *)&remoteAddress, &addressSize);
-				
-				printf("received %d bytes\n", bytesRecvd);
-				handleRequest(myBuffer,bytesRecvd);				
+				if (bytesRecvd<=0){
+					std::cerr<<"timeout!";
+					
+				}
+				if (bytesRecvd>0){
+					printf("received %d bytes\n", bytesRecvd);
+					handleRequest(myBuffer,bytesRecvd);		
+				}		
 			}
 		}
 		
