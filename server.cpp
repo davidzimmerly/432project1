@@ -176,6 +176,7 @@ void server::handleRequest(char* myBuffer,int bytesRecvd){
 					}
  				}
 				currentUsers[userSlot].myActiveChannel = channelToJoin;
+				currentUsers[userSlot].lastSeen = time (NULL);
      		}
 		}
 		else if (identifier == REQ_LEAVE && bytesRecvd == joinLeaveWhoSize){//leave request
@@ -217,7 +218,7 @@ void server::handleRequest(char* myBuffer,int bytesRecvd){
 						std::cerr << "server: removing empty channel "<<channelToLeave<<std::endl;
 					}
      			}
- 				
+ 				currentUsers[userSlot].lastSeen = time (NULL);	
  			}
 		}
 		else if (identifier == REQ_SAY && bytesRecvd==sayRequestSize){//say request
@@ -231,6 +232,7 @@ void server::handleRequest(char* myBuffer,int bytesRecvd){
  				std::cerr << "say request received from "<< "userName: " <<userName << " for channel " << channelToAnnounce << std::endl;
      			sendMessage(userName, channelToAnnounce, textField);
 			}
+			currentUsers[userSlot].lastSeen = time (NULL);
 		}
 		else if (identifier == REQ_KEEP_ALIVE && bytesRecvd==logoutListKeepAliveSize){//keep alive
 			int userSlot = findUserSlot(remoteIPAddress,remotePort);
@@ -253,6 +255,7 @@ void server::handleRequest(char* myBuffer,int bytesRecvd){
 				exit(EXIT_FAILURE);
 			}
 			free(my_text_list);
+			currentUsers[userSlot].lastSeen = time (NULL);
 		}
 		else if (identifier == REQ_WHO && bytesRecvd==joinLeaveWhoSize){//list of people on certain channel
 			struct request_who* incoming_request_who;
@@ -260,6 +263,7 @@ void server::handleRequest(char* myBuffer,int bytesRecvd){
 			std::string channelToQuery = std::string(incoming_request_who->req_channel);
 			int userSlot = findUserSlot(remoteIPAddress,remotePort);;
 			std::string userName = currentUsers[userSlot].myUserName;
+ 			currentUsers[userSlot].lastSeen = time (NULL);
  			//find given channel, check size
 			int position =-1;
 			for (unsigned int x=0; x<channelList.size(); x++){

@@ -5,6 +5,15 @@ void client::keepAlive(){
 	send((char*)my_request_keep_alive,logoutListKeepAliveSize,"keep Alive");
 	delete(my_request_keep_alive);
 }
+void client::checkKeepAlive(time_t &keepAliveTime){
+	time_t checkTime = time(NULL);	
+	double seconds = difftime(checkTime,keepAliveTime);//note:order matters here
+	if (seconds>=60){
+		//std::cerr<<"timeout! sending keepAlive"<<std::endl;
+		keepAlive();
+		keepAliveTime = time(NULL);	
+	}
+}
 int client::getServerResponse(bool nonblocking, char* replyBuffer){
 	int flag = 0;
 	if (nonblocking)
@@ -227,8 +236,10 @@ int main (int argc, char *argv[]){
 	std::string buffer="";
 	if (buffer==""){
 			std::cerr<<">";
-		}
+	}
 	struct timeval* timeOut=new timeval;
+	time_t keepAliveTime = time (NULL);
+	
 	while (running){
 		timeOut->tv_sec = 60;
 		timeOut->tv_usec = 0;
@@ -270,12 +281,15 @@ int main (int argc, char *argv[]){
 	        			std::cerr<<'\b'<<' '<<'\b';
 						buffer=buffer.substr(0,buffer.length()-1);
 					}
-	        	}
+					thisClient->checkKeepAlive(keepAliveTime);
+				}
 	        	else {//output a character
 	        		buffer += c;
 	        		std::cerr<<c;
+	        		thisClient->checkKeepAlive(keepAliveTime);
+				
 	        	}
-				FD_CLR(STDIN_FILENO,&readfds);
+	        	FD_CLR(STDIN_FILENO,&readfds);
 	        }
 		}    	
 	}

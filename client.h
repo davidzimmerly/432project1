@@ -10,6 +10,7 @@ class client{
 		void logout();
 		void join(std::string channel);
 		void keepAlive();
+		void checkKeepAlive(time_t &keepAliveTime);
 		bool parseCommand(std::string buffer);		
 	private:
 		struct sockaddr_in remoteAddress, myAddress;
