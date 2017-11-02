@@ -23,7 +23,7 @@ const int serverTimeout = 120;
 const int clientResponseWaitTime = 5;
 
 #define BUFFERLENGTH 16384
-
+/* |||||||||||| helper functions and constants ||||||||||||||||||||||||||   */
 void initBuffer(char* buf,int size){ for (int x=0;x<size;x++){ buf[x]='\0'; } }
 struct userInfo
 {

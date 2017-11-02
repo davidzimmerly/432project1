@@ -4,14 +4,14 @@ class client{
 		int mySocket;
 		client();
 		client(char* serverAddress, char* serverPort, char* userName);
+		bool parseCommand(std::string buffer);		
 		int getServerResponse(bool nonblocking, char* replyBuffer);
+		void checkKeepAlive(time_t &keepAliveTime);
 		void handleServerResponse(char* replyBuffer,int bytesRecvd);
 		void login();
 		void logout();
 		void join(std::string channel);
-		void keepAlive();
-		void checkKeepAlive(time_t &keepAliveTime);
-		bool parseCommand(std::string buffer);		
+		void keepAlive();		
 	private:
 		struct sockaddr_in remoteAddress, myAddress;
 		socklen_t addressSize;
