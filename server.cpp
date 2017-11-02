@@ -37,6 +37,11 @@ void server::purgeUsers(){
 		double seconds = difftime(timeNow,currentUsers[x].lastSeen);
 		//std::cerr << "seconds for user "<<currentUsers[x].myUserName <<" : "<<seconds<<std::endl;
 		if (seconds>=serverTimeout){
+			//log out of subscribed channels:
+			for (unsigned int y=0; y<currentUsers[x].myChannels.size(); y++){
+				server::leave(currentUsers[x].myUserName,currentUsers[x].myChannels[y]);
+			}
+
 			std::cerr << "server logs " <<currentUsers[x++].myUserName <<" out during purge." << std::endl;
      		
 			currentUsers.erase(currentUsers.begin()+x);
@@ -109,7 +114,7 @@ void server::handleRequest(char* myBuffer,int bytesRecvd){
 			bool addUser = true;
 			if (currentUsers.size()>0) {
 				for (std::vector<userInfo>::iterator iter = currentUsers.begin(); iter != currentUsers.end(); ++iter) {
-     				if (userName.compare((*iter).myUserName) == 0&&remoteIPAddress.compare((*iter).myIPAddress) == 0&&remotePort==(*iter).myPort){
+     				if (userName.compare((*iter).myUserName) == 0/*&&remoteIPAddress.compare((*iter).myIPAddress) == 0&&remotePort==(*iter).myPort*/){
      					sendError("*error , user is already logged in.",remoteIPAddress,remotePort);
      					addUser = false;
      				}
@@ -166,7 +171,7 @@ void server::handleRequest(char* myBuffer,int bytesRecvd){
      			else{//channel was found
      				bool userFound=false;//check if user exists in channel already
 					for (unsigned int x=0; x <channelList[position].myUsers.size(); x++){
-						if (userName.compare(channelList[position].myUsers[x]) == 0){
+						if (userName.compare(channelList[position].myUsers[x]) == 0){//handled clientside in goodclient
 	     					userFound=true;
 	     					sendError("user already in channel",remoteIPAddress,remotePort);
 	     					break;
@@ -195,32 +200,8 @@ void server::handleRequest(char* myBuffer,int bytesRecvd){
      					break;
      				}
      			}
+     			server::leave(userName,channelToLeave);
  				currentUsers[userSlot].myActiveChannel = "";
- 				std::cerr << "server: " << userName <<" leaves channel " << channelToLeave <<std::endl;
-
- 				int masterChannelListPosition =-1;
- 				int channelListNamePosition =-1;
- 				for (unsigned int x=0; x <channelList.size(); x++){
-					if (channelToLeave.compare(channelList[x].myChannelName) == 0){
-     					masterChannelListPosition=x;
-     					break;
-     				}
-     			}
- 				if (masterChannelListPosition>-1){
-     				for (unsigned int x=0; x <channelList[masterChannelListPosition].myUsers.size(); x++){
-						if (userName.compare(channelList[masterChannelListPosition].myUsers[x]) == 0){
-	     					channelListNamePosition=x;
-	     					break;
-	     				}
-	     			}
-	     		}
-     			if (channelListNamePosition>-1){
-     				channelList[masterChannelListPosition].myUsers.erase(channelList[masterChannelListPosition].myUsers.begin()+channelListNamePosition);
-					if (channelList[masterChannelListPosition].myUsers.size()==0){
-						channelList.erase(channelList.begin()+masterChannelListPosition);
-						std::cerr << "server: removing empty channel "<<channelToLeave<<std::endl;
-					}
-     			}
  				currentUsers[userSlot].lastSeen = time (NULL);	
  			}
 		}
@@ -306,6 +287,35 @@ void server::handleRequest(char* myBuffer,int bytesRecvd){
 	}
 }
 
+
+void server::leave(std::string userName, std::string channelToLeave){
+	std::cerr << "server: " << userName <<" leaves channel " << channelToLeave <<std::endl;
+
+	int masterChannelListPosition =-1;
+	int channelListNamePosition =-1;
+	for (unsigned int x=0; x <channelList.size(); x++){
+		if (channelToLeave.compare(channelList[x].myChannelName) == 0){
+				masterChannelListPosition=x;
+				break;
+			}
+	}
+	if (masterChannelListPosition>-1){
+		for (unsigned int x=0; x <channelList[masterChannelListPosition].myUsers.size(); x++){
+			if (userName.compare(channelList[masterChannelListPosition].myUsers[x]) == 0){
+				channelListNamePosition=x;
+				break;
+			}
+		}
+	}
+	if (channelListNamePosition>-1){
+		channelList[masterChannelListPosition].myUsers.erase(channelList[masterChannelListPosition].myUsers.begin()+channelListNamePosition);
+		if (channelList[masterChannelListPosition].myUsers.size()==0 && channelToLeave!="Common"){
+			channelList.erase(channelList.begin()+masterChannelListPosition);
+			std::cerr << "server: removing empty channel "<<channelToLeave<<std::endl;
+		}
+	}
+
+}
 
 void server::serve(){
 	setTimeout(mySocket,serverTimeout);

@@ -9,7 +9,6 @@ void client::checkKeepAlive(time_t &keepAliveTime){
 	time_t checkTime = time(NULL);	
 	double seconds = difftime(checkTime,keepAliveTime);//note:order matters here
 	if (seconds>=clientKeepAlive){
-		//std::cerr<<"timeout! sending keepAlive"<<std::endl;
 		keepAlive();
 		keepAliveTime = time(NULL);	
 	}
@@ -134,16 +133,20 @@ void client::switchChannel(std::string channel){
 }
 void client::join(std::string channel){
 	truncate(channel,CHANNEL_MAX-1);
-	struct request_join* my_request_join= new request_join;
-	my_request_join->req_type = REQ_JOIN;
-	initBuffer(my_request_join->req_channel, CHANNEL_MAX);
-	
-	strcpy(my_request_join->req_channel,channel.c_str());
-	myActiveChannel = channel;
-	if (findStringPositionInVector(myChannels,channel)==-1)
-		myChannels.push_back(channel);
-	send((char*)my_request_join, joinLeaveWhoSize,"sendto request to join from client");
-	delete(my_request_join);
+	if (findStringPositionInVector(myChannels,channel)>-1)
+		std::cerr << "*error, you have already joined channel "<<channel << std::endl;
+	else{
+		struct request_join* my_request_join= new request_join;
+		my_request_join->req_type = REQ_JOIN;
+		initBuffer(my_request_join->req_channel, CHANNEL_MAX);
+		
+		strcpy(my_request_join->req_channel,channel.c_str());
+		myActiveChannel = channel;
+		if (findStringPositionInVector(myChannels,channel)==-1)
+			myChannels.push_back(channel);
+		send((char*)my_request_join, joinLeaveWhoSize,"sendto request to join from client");
+		delete(my_request_join);
+	}
 }
 void client::leave(std::string channel){
 	truncate(channel,CHANNEL_MAX-1);

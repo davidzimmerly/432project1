@@ -14,6 +14,7 @@ class server{
 		void sendMessage(std::string fromUser, std::string toChannel, std::string message);
 		void handleRequest(char* myBuffer,int bytesRecvd);
 		void serve();
+		void leave(std::string userName, std::string channelToLeave);
 	public:
 		std::string myDomain,myPort;
 		server(char* domain, char* port);
