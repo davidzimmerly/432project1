@@ -20,7 +20,7 @@ const int logoutListKeepAliveSize = 4;
 const int maxConnections = 256;
 const int errorSize = 68;
 const int clientKeepAlive = 60;
-const int serverTimeout = 10;
+const int serverTimeout = 120;
 const int clientResponseWaitTime = 5;
 
 #define BUFFERLENGTH  1024

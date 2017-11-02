@@ -117,7 +117,6 @@ void client::send(char* buf,int size,std::string error){
 	setTimeout(mySocket,clientResponseWaitTime);//i set this timeout so client won't hang if no response, but can't figure out how to detct it, but doesn't crash client at least
 	int sending=99123;
 	sending = sendto(mySocket, buf, size, 0, (struct sockaddr *)&remoteAddress, sizeof(remoteAddress));
-	std::cerr << sending <<std::endl;
 	if (sending==-1){
 		perror(error.c_str());
 		cooked_mode();
