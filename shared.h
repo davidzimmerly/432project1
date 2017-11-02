@@ -1,6 +1,5 @@
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
+#include <arpa/inet.h> /* htons */
 #include <string>
 #include <string.h>	/* strcopy */
 #include <iostream>
@@ -25,13 +24,7 @@ const int clientResponseWaitTime = 5;
 
 #define BUFFERLENGTH 16384
 
-void initBuffer(char* buf,int size){
-	for (int x=0;x<size;x++){
-		buf[x]='\0';
-	}
-}
-
-
+void initBuffer(char* buf,int size){ for (int x=0;x<size;x++){ buf[x]='\0'; } }
 struct userInfo
 {
 	std::string myUserName;
@@ -44,7 +37,6 @@ struct userInfo
 int findStringPositionInVector(std::vector<std::string> inputV, std::string inputS){
 	int found = -1;
 	for (unsigned int x=0; x<inputV.size(); x++) {
-		
 		if (inputV[x]==inputS){
 			found=x;
 			break;

@@ -11,7 +11,6 @@ int server::findUserSlot(std::string remoteIPAddress,int remotePort){
 	}
 	return userSlot;		     			
 }
-
 void server::sendError(std::string theError, std::string ip, int port){
 	//create error message
 	struct text_error* my_text_error = new text_error;
