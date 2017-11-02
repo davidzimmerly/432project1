@@ -75,10 +75,7 @@ void client::handleServerResponse(char* replyBuffer,int bytesRecvd){
 			struct text_error* incoming_text_error;
 			incoming_text_error = (struct text_error*)replyBuffer;
 			std::string errorMessage= incoming_text_error->txt_error;
-			//std::cerr <<"received " << bytesRecvd<<" error message: "<<errorMessage<<std::endl;
 			std::cerr << errorMessage << std::endl;
-			//cooked_mode();
-			//exit(EXIT_FAILURE);
 		}
 	}
 }
@@ -295,9 +292,7 @@ int main (int argc, char *argv[]){
 			exit(EXIT_FAILURE);
 		}
 		else if (err==0){
-			//std::cerr<<"keep alive sent "<<std::endl;
 			thisClient->checkKeepAlive(keepAliveTime);
-			//timeOut->tv_sec = clientKeepAlive;
 		}
 		else {
 	        if (FD_ISSET (thisClient->mySocket, &readfds)){
@@ -331,7 +326,6 @@ int main (int argc, char *argv[]){
 	        		buffer += c;
 	        		std::cerr<<c;
 	        		thisClient->checkKeepAlive(keepAliveTime);
-				
 	        	}
 	        	FD_CLR(STDIN_FILENO,&readfds);
 	        }

@@ -33,18 +33,14 @@ void server::purgeUsers(){
 	std::cerr << "purgeUsers initiated "<<std::endl;
 	time_t timeNow = time(NULL);
 	for (unsigned int x=0; x<currentUsers.size(); x++){
-	
 		double seconds = difftime(timeNow,currentUsers[x].lastSeen);
-		std::cerr << "seconds for user "<<currentUsers[x].myUserName <<" : "<<seconds<<std::endl;
 		if (seconds>=serverTimeout){
 			//log out of subscribed channels:
 			for (unsigned int y=0; y<currentUsers[x].myChannels.size(); y++){
 				server::leave(currentUsers[x].myUserName,currentUsers[x].myChannels[y]);
 			}
-
 			std::cerr << "server logs " <<currentUsers[x].myUserName <<" out during purge." << std::endl;
-     		
-			currentUsers.erase(currentUsers.begin()+x);
+     		currentUsers.erase(currentUsers.begin()+x);
      		if (x+1<=currentUsers.size())//at least one more?  this deserves more testing, but seems to work
      			x--;
      		else
@@ -53,26 +49,11 @@ void server::purgeUsers(){
 	}
 }
 void server::sendMessage(std::string fromUser, std::string toChannel, std::string message){
-	//could probably recast the buffer instead of remaking it..
 	std::cerr<< "received message from user "<< fromUser<< " to channel "<< toChannel <<" msg: "<<message<<std::endl;
 	int channelSlot = findChannelInfoPositionInVector(channelList,toChannel);
 	if (channelSlot>-1){
 		//get list of users/ips/ports, create text say, send message
 		std::vector<struct userInfo> listOfUsers = channelList[channelSlot].myUsers;
-		//std::vector<std::string> listOfIPs;
-		//std::vector<int> listOfPorts;
-		//int size = listOfUsers.size();
-		
-		/*for(int x =0 ; x < size; x++){
-			//if (x!=userSlot){//assuming send mail to sender as well
-				int position = findUserInfoPositionInVector(currentUsers,listOfUsers[x].myUserName);
-				if (position>-1){
-					listOfIPs.push_back(currentUsers[position].myIPAddress);
-					listOfPorts.push_back(currentUsers[position].myPort);
-				}
-			//}
-		}*//////////
-		//create text_say
 		struct text_say* my_text_say= new text_say;
 		my_text_say->txt_type = TXT_SAY;
 		initBuffer(my_text_say->txt_channel, CHANNEL_MAX);
@@ -81,19 +62,17 @@ void server::sendMessage(std::string fromUser, std::string toChannel, std::strin
 		strcpy(my_text_say->txt_channel,toChannel.c_str());
 		strcpy(my_text_say->txt_text,message.c_str());
 		strcpy(my_text_say->txt_username,fromUser.c_str());
-		//if (listOfUsers.size()==listOfIPs.size()&&listOfIPs.size()==listOfPorts.size()){
 		for(unsigned int x =0 ; x < listOfUsers.size(); x++){
 			struct sockaddr_in remoteAddress;
 			remoteAddress.sin_family = AF_INET;
 			remoteAddress.sin_port = htons(listOfUsers[x].myPort);
 			remoteAddress.sin_addr.s_addr = inet_addr(listOfUsers[x].myIPAddress.c_str());\
-			std::cerr<< "sending mail to "<<listOfUsers[x].myUserName<<" at ip "<<listOfUsers[x].myIPAddress<< " on port "<< listOfUsers[x].myPort<<std::endl;
+			//std::cerr<< "sending mail to "<<listOfUsers[x].myUserName<<" at ip "<<listOfUsers[x].myIPAddress<< " on port "<< listOfUsers[x].myPort<<std::endl;
 			if (sendto(mySocket, (char*)my_text_say, saySize, 0, (struct sockaddr *)&remoteAddress, sizeof(remoteAddress))==-1){
 				perror("server sending mail to multiple users");
 				exit(EXIT_FAILURE);
 			}
 		}			
-		//}
 		delete(my_text_say);
 	}
 }
@@ -139,11 +118,9 @@ void server::handleRequest(char* myBuffer,int bytesRecvd){
 				int size =  currentUsers.size();
 				for (int x=0; x <size; x++){
 					if (remoteIPAddress.compare(currentUsers[x].myIPAddress) == 0){
-     					
      					std::cerr << "server: " << currentUsers[x].myUserName <<" logs out" << std::endl;
      					currentUsers.erase(currentUsers.begin()+x);
      					break;
-
      				}
      			}
      		}
@@ -154,10 +131,9 @@ void server::handleRequest(char* myBuffer,int bytesRecvd){
 			std::string channelToJoin = std::string(incoming_join_request->req_channel);
 			int userSlot = findUserSlot(remoteIPAddress,remotePort);
 			if (userSlot>=0){//user found in macro collection
- 				//std::cerr << "found user "<<currentUsers[userSlot].myUserName<<std::endl;
  				std::string userName = currentUsers[userSlot].myUserName;
-					bool channelFound=false;
-					int position =-1;
+				bool channelFound=false;
+				int position =-1;
 				for (unsigned int x=0; x <channelList.size(); x++){
 					if (channelToJoin.compare(channelList[x].myChannelName) == 0){
      					channelFound=true;
@@ -194,7 +170,8 @@ void server::handleRequest(char* myBuffer,int bytesRecvd){
 				currentUsers[userSlot].myActiveChannel = channelToJoin;
 				currentUsers[userSlot].lastSeen = time (NULL);
      		}
-
+     		else
+     			sendError("user not found",remoteIPAddress,remotePort);
 		}
 		else if (identifier == REQ_LEAVE && bytesRecvd == joinLeaveWhoSize){//leave request
 			struct request_leave* incoming_leave_request;
@@ -214,6 +191,8 @@ void server::handleRequest(char* myBuffer,int bytesRecvd){
  				currentUsers[userSlot].myActiveChannel = "";
  				currentUsers[userSlot].lastSeen = time (NULL);	
  			}
+ 			else
+     			sendError("user not found",remoteIPAddress,remotePort);
 		}
 		else if (identifier == REQ_SAY && bytesRecvd==sayRequestSize){//say request
 			struct request_say* incoming_request_say;
@@ -227,6 +206,8 @@ void server::handleRequest(char* myBuffer,int bytesRecvd){
      			sendMessage(userName, channelToAnnounce, textField);
 				currentUsers[userSlot].lastSeen = time (NULL);
 			}
+			else
+     			sendError("user not found",remoteIPAddress,remotePort);
 			
 		}
 		else if (identifier == REQ_KEEP_ALIVE && bytesRecvd==logoutListKeepAliveSize){//keep alive
@@ -261,7 +242,7 @@ void server::handleRequest(char* myBuffer,int bytesRecvd){
 				currentUsers[userSlot].lastSeen = time (NULL);
  			}
  			else{
- 				sendError("*unknown user (please try again in a few minutes if reconnecting.)",remoteIPAddress,remotePort);
+				sendError("user not found",remoteIPAddress,remotePort);
  			}
 		}
 		else if (identifier == REQ_WHO && bytesRecvd==joinLeaveWhoSize){//list of people on certain channel
@@ -315,7 +296,6 @@ void server::handleRequest(char* myBuffer,int bytesRecvd){
 
 void server::leave(std::string userName, std::string channelToLeave){
 	std::cerr << "server: " << userName <<" leaves channel " << channelToLeave <<std::endl;
-
 	int masterChannelListPosition =-1;
 	int channelListNamePosition =-1;
 	for (unsigned int x=0; x <channelList.size(); x++){
@@ -339,21 +319,16 @@ void server::leave(std::string userName, std::string channelToLeave){
 			std::cerr << "server: removing empty channel "<<channelToLeave<<std::endl;
 		}
 	}
-
 }
-
 void server::checkPurge(time_t &purgeTime){
 	time_t checkTime = time(NULL);	
 	double seconds = difftime(checkTime,purgeTime);
 	if (seconds>=serverTimeout){
-		std::cerr<<"purging!";
 		purgeUsers();
 		purgeTime = time(NULL);	
 		//valgrind=false;
-	}
-			
+	}			
 }
-
 void server::serve(){
 	setTimeout(mySocket,serverTimeout/25);
 	time_t purgeTime = time (NULL);

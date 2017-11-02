@@ -23,7 +23,7 @@ const int clientKeepAlive = 60;
 const int serverTimeout = 120;
 const int clientResponseWaitTime = 5;
 
-#define BUFFERLENGTH  1024
+#define BUFFERLENGTH 16384
 
 void initBuffer(char* buf,int size){
 	for (int x=0;x<size;x++){
