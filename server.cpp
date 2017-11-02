@@ -96,7 +96,7 @@ void server::handleRequest(char* myBuffer,int bytesRecvd){
 			bool addUser = true;
 			if (currentUsers.size()>0) {
 				for (std::vector<userInfo>::iterator iter = currentUsers.begin(); iter != currentUsers.end(); ++iter) {
-     				if (userName.compare((*iter).myUserName) == 0&&remoteIPAddress.compare((*iter).myIPAddress) == 0&&remotePort==(*iter).myPort){
+     				if (/*userName.compare((*iter).myUserName) == 0&&*/remoteIPAddress.compare((*iter).myIPAddress) == 0&&remotePort==(*iter).myPort){
      					sendError("*error , user is already logged in.",remoteIPAddress,remotePort);
      					addUser = false;
      				}
@@ -117,7 +117,7 @@ void server::handleRequest(char* myBuffer,int bytesRecvd){
 			if (currentUsers.size()>0) {
 				int size =  currentUsers.size();
 				for (int x=0; x <size; x++){
-					if (remoteIPAddress.compare(currentUsers[x].myIPAddress) == 0){
+					if ((remoteIPAddress.compare(currentUsers[x].myIPAddress) == 0)&&remotePort==currentUsers[x].myPort){
      					std::cerr << "server: " << currentUsers[x].myUserName <<" logs out" << std::endl;
      					currentUsers.erase(currentUsers.begin()+x);
      					break;
@@ -381,7 +381,6 @@ int main (int argc, char *argv[]){
 		exit(EXIT_FAILURE);
 	}
 	server* myServer = new server(argv[1],argv[2]);
-	sleep(1);
 	delete(myServer);
 	return 0;
 }

@@ -323,8 +323,10 @@ int main (int argc, char *argv[]){
 					thisClient->checkKeepAlive(keepAliveTime);
 				}
 	        	else {//output a character
-	        		buffer += c;
-	        		std::cerr<<c;
+	        		if ((c>='a' && c<='~')||(c>='A' && c<='Z')){
+	        			buffer += c;
+	        			std::cerr<<c;
+	        		}
 	        		thisClient->checkKeepAlive(keepAliveTime);
 	        	}
 	        	FD_CLR(STDIN_FILENO,&readfds);
