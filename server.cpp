@@ -326,11 +326,11 @@ void server::serve(){
 		//std::cerr <<"bound IP address:" << myDomain << " waiting on Port: "<< myPort <<std::endl;
 		//printf("waiting on port %d\n", port.c_str);
 		bytesRecvd = recvfrom(mySocket, myBuffer, BUFFERLENGTH, 0, (struct sockaddr *)&remoteAddress, &addressSize);
-		if (bytesRecvd<=0){//never going to happen unless all users stop pinging in
-			time_t timer = time (NULL);
-			std::cerr<<"timeout!";
-			std::cerr << timer;
-			//purgeUsers();
+		if (bytesRecvd<=0){//recvfrom timeout : never going to happen unless all users stop pinging in
+			//time_t timer = time (NULL);
+			//std::cerr<<"timeout!";
+			//std::cerr << timer;
+			purgeUsers();
 			//valgrind=false;
 			//check users still valid
 		}
@@ -340,8 +340,8 @@ void server::serve(){
 			time_t checkTime = time(NULL);	
 			double seconds = difftime(purgeTime,checkTime);
 			if (seconds>=serverTimeout){
-				std::cerr<<"timeout!";
-			//	purgeUsers();
+				//std::cerr<<"timeout!";
+				purgeUsers();
 				purgeTime = time(NULL);	
 				//valgrind=false;
 			}
