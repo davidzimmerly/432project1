@@ -25,55 +25,61 @@ int client::getServerResponse(bool nonblocking, char* replyBuffer){
 	else return 0;
 }
 void client::handleServerResponse(char* replyBuffer,int bytesRecvd){
-	struct text* incoming_text;
-	incoming_text = (struct text*)replyBuffer;
-	if (incoming_text->txt_type==TXT_LIST &&  bytesRecvd>=32){
-		struct text_list* incoming_text_list;
-		incoming_text_list = (struct text_list*)replyBuffer;
-		int channels = incoming_text_list->txt_nchannels;
-		struct channel_info* txt_channels;
-		txt_channels = (struct channel_info*)incoming_text_list->txt_channels;
-		std::vector<std::string> listOfChannels;
-		for (int x=0; x<channels; x++){
-			listOfChannels.push_back(std::string(txt_channels[x].ch_channel));
-		}
-		std::cerr<<"Existing channels:"<<std::endl;
-		for (std::vector<std::string>::iterator iter = listOfChannels.begin(); iter != listOfChannels.end(); ++iter) {
-			std::cerr << " "<<*iter << std::endl;
-		}
+	if (bytesRecvd>=BUFFERLENGTH){
+		std::cerr << "*buffer overflow, ignoring request" << std::endl;
+		
 	}
-	else if (incoming_text->txt_type==TXT_WHO /*&& bytesRecvd>=joinLeaveWhoSize*/){//don't know who size
-		struct text_who* incoming_text_who;
-		incoming_text_who = (struct text_who*)replyBuffer;
-		int userNames = incoming_text_who->txt_nusernames;
-		std::string channel = std::string(incoming_text_who->txt_channel);
-		struct user_info* txt_users;
-		txt_users = (struct user_info*)incoming_text_who->txt_users;
-		std::vector<std::string> listOfUsers;
-		for (int x=0; x<userNames; x++){
-			listOfUsers.push_back(std::string(txt_users[x].us_username));
+	else{
+		struct text* incoming_text;
+		incoming_text = (struct text*)replyBuffer;
+		if (incoming_text->txt_type==TXT_LIST &&  bytesRecvd>=32){
+			struct text_list* incoming_text_list;
+			incoming_text_list = (struct text_list*)replyBuffer;
+			int channels = incoming_text_list->txt_nchannels;
+			struct channel_info* txt_channels;
+			txt_channels = (struct channel_info*)incoming_text_list->txt_channels;
+			std::vector<std::string> listOfChannels;
+			for (int x=0; x<channels; x++){
+				listOfChannels.push_back(std::string(txt_channels[x].ch_channel));
+			}
+			std::cerr<<"Existing channels:"<<std::endl;
+			for (std::vector<std::string>::iterator iter = listOfChannels.begin(); iter != listOfChannels.end(); ++iter) {
+				std::cerr << " "<<*iter << std::endl;
+			}
 		}
-		std::cerr<<"Users on channel "<<channel<<":"<<std::endl;
-		for (std::vector<std::string>::iterator iter = listOfUsers.begin(); iter != listOfUsers.end(); ++iter) {
-			std::cerr << " "<<*iter << std::endl;
+		else if (incoming_text->txt_type==TXT_WHO /*&& bytesRecvd>=joinLeaveWhoSize*/){//don't know who size
+			struct text_who* incoming_text_who;
+			incoming_text_who = (struct text_who*)replyBuffer;
+			int userNames = incoming_text_who->txt_nusernames;
+			std::string channel = std::string(incoming_text_who->txt_channel);
+			struct user_info* txt_users;
+			txt_users = (struct user_info*)incoming_text_who->txt_users;
+			std::vector<std::string> listOfUsers;
+			for (int x=0; x<userNames; x++){
+				listOfUsers.push_back(std::string(txt_users[x].us_username));
+			}
+			std::cerr<<"Users on channel "<<channel<<":"<<std::endl;
+			for (std::vector<std::string>::iterator iter = listOfUsers.begin(); iter != listOfUsers.end(); ++iter) {
+				std::cerr << " "<<*iter << std::endl;
+			}
 		}
-	}
-	else if (incoming_text->txt_type==TXT_SAY &&  bytesRecvd==saySize){
-		struct text_say* incoming_text_say;
-		incoming_text_say = (struct text_say*)replyBuffer;
-		std::string channel = incoming_text_say->txt_channel;
-		std::string userName= incoming_text_say->txt_username;
-		std::string message= incoming_text_say->txt_text;
-		std::cerr<<"["<<channel<<"]["<<userName<<"]: "<<message<<std::endl;
-	}
-	else if (incoming_text->txt_type==TXT_ERROR && bytesRecvd>=errorSize){//packet was 132, expected 68?
-		struct text_error* incoming_text_error;
-		incoming_text_error = (struct text_error*)replyBuffer;
-		std::string errorMessage= incoming_text_error->txt_error;
-		//std::cerr <<"received " << bytesRecvd<<" error message: "<<errorMessage<<std::endl;
-		std::cerr << errorMessage << std::endl;
-		cooked_mode();
-		exit(EXIT_FAILURE);
+		else if (incoming_text->txt_type==TXT_SAY &&  bytesRecvd==saySize){
+			struct text_say* incoming_text_say;
+			incoming_text_say = (struct text_say*)replyBuffer;
+			std::string channel = incoming_text_say->txt_channel;
+			std::string userName= incoming_text_say->txt_username;
+			std::string message= incoming_text_say->txt_text;
+			std::cerr<<"["<<channel<<"]["<<userName<<"]: "<<message<<std::endl;
+		}
+		else if (incoming_text->txt_type==TXT_ERROR && bytesRecvd>=errorSize){//packet was 132, expected 68?
+			struct text_error* incoming_text_error;
+			incoming_text_error = (struct text_error*)replyBuffer;
+			std::string errorMessage= incoming_text_error->txt_error;
+			//std::cerr <<"received " << bytesRecvd<<" error message: "<<errorMessage<<std::endl;
+			std::cerr << errorMessage << std::endl;
+			//cooked_mode();
+			//exit(EXIT_FAILURE);
+		}
 	}
 }
 void client::login(){
@@ -102,15 +108,21 @@ void client::requestChannels(){
 	delete(my_request_list);
 }
 void client::say(std::string textfield){
-	truncate(textfield,SAY_MAX-1);
-	struct request_say* my_request_say= new request_say;
-	my_request_say->req_type = REQ_SAY;
-	initBuffer(my_request_say->req_channel, CHANNEL_MAX);
-	initBuffer(my_request_say->req_text, SAY_MAX);
-	strcpy(my_request_say->req_channel,myActiveChannel.c_str());
-	strcpy(my_request_say->req_text,textfield.c_str());
-	send((char*)my_request_say,sayRequestSize,"sending a message to channel  (from client)");
-	delete(my_request_say);
+	if (myActiveChannel!=""){
+		truncate(textfield,SAY_MAX-1);
+		struct request_say* my_request_say= new request_say;
+		my_request_say->req_type = REQ_SAY;
+		initBuffer(my_request_say->req_channel, CHANNEL_MAX);
+		initBuffer(my_request_say->req_text, SAY_MAX);
+		strcpy(my_request_say->req_channel,myActiveChannel.c_str());
+		strcpy(my_request_say->req_text,textfield.c_str());
+		send((char*)my_request_say,sayRequestSize,"sending a message to channel  (from client)");
+		delete(my_request_say);
+	}
+	else{
+		std::cerr<<"*error you are not in a channel"<<std::endl;
+	}
+
 }
 void client::send(char* buf,int size,std::string error){
 	setTimeout(mySocket,clientResponseWaitTime);//i set this timeout so client won't hang if no response, but can't figure out how to detct it, but doesn't crash client at least
@@ -150,16 +162,26 @@ void client::join(std::string channel){
 }
 void client::leave(std::string channel){
 	truncate(channel,CHANNEL_MAX-1);
-	if (findStringPositionInVector(myChannels,channel)>-1){
+	int position = findStringPositionInVector(myChannels,channel);
+	if (position>-1){
 		struct request_leave* my_request_leave= new request_leave;
 		my_request_leave->req_type = REQ_LEAVE;
 		initBuffer(my_request_leave->req_channel, CHANNEL_MAX);	
 		strcpy(my_request_leave->req_channel,channel.c_str());
 		send((char*)my_request_leave,joinLeaveWhoSize,"sendto request to join from client");
 		delete(my_request_leave);
+		myChannels.erase(myChannels.begin()+position);
+		if (myActiveChannel==channel && channel!="Common" && findStringPositionInVector(myChannels,"Common")>=0){
+			myActiveChannel="Common";//default to common, if still subscribed
+		}
+		else{
+			myActiveChannel="";
+		}
+
 	}
-	else
+	else{
 		std::cerr << "*error, you have not joined channel "<<channel << std::endl;		
+	}
 }	
 void client::who(std::string channel){
 	truncate(channel,CHANNEL_MAX-1);
@@ -258,10 +280,10 @@ int main (int argc, char *argv[]){
 	}
 	struct timeval* timeOut=new timeval;
 	time_t keepAliveTime = time (NULL);
-	
+	timeOut->tv_sec = clientKeepAlive/12;
+	timeOut->tv_usec = 0;
+		
 	while (running){
-		timeOut->tv_sec = clientKeepAlive;
-		timeOut->tv_usec = 0;
 		char replyBuffer[BUFFERLENGTH];
 		int err;
 		fd_set readfds;
@@ -276,8 +298,8 @@ int main (int argc, char *argv[]){
 		}
 		else if (err==0){
 			//std::cerr<<"keep alive sent "<<std::endl;
-			thisClient->keepAlive();
-			timeOut->tv_sec = clientKeepAlive;
+			thisClient->checkKeepAlive(keepAliveTime);
+			//timeOut->tv_sec = clientKeepAlive;
 		}
 		else {
 	        if (FD_ISSET (thisClient->mySocket, &readfds)){
@@ -288,6 +310,7 @@ int main (int argc, char *argv[]){
 					}
 					thisClient->handleServerResponse(replyBuffer,bytesRecvd);
 					std::cerr<<'>'<<buffer;
+					thisClient->checkKeepAlive(keepAliveTime);
 				}
 	        }
 	        if (FD_ISSET (STDIN_FILENO, &readfds)){

@@ -11,6 +11,7 @@ class server{
 		int findUserSlot(std::string remoteIPAddress,int remotePort);
 		void sendError(std::string theError, std::string ip, int port);
 		void purgeUsers();
+		void checkPurge(time_t &purgeTime);
 		void sendMessage(std::string fromUser, std::string toChannel, std::string message);
 		void handleRequest(char* myBuffer,int bytesRecvd);
 		void serve();
