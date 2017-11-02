@@ -292,11 +292,9 @@ int main (int argc, char *argv[]){
 	        	c = fgetc(stdin);
 	        	if (c=='\n'){//run the command
 	        		std::cerr<<std::endl;
-	        		cooked_mode();
 	        		running = thisClient->parseCommand(buffer);
 	        		std::cerr<<'\b'<<'\b'<<'>';
 	        		buffer="";
-	        		raw_mode();
 	        	}
 	        	else if (c==127){//backspace
 	        		if (buffer.length()>0){
