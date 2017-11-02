@@ -292,6 +292,7 @@ int main (int argc, char *argv[]){
 	        	c = fgetc(stdin);
 	        	if (c=='\n'){//run the command
 	        		std::cerr<<std::endl;
+	        		std::cerr<<std::endl;
 	        		running = thisClient->parseCommand(buffer);
 	        		std::cerr<<'\b'<<'\b'<<'>';
 	        		buffer="";
