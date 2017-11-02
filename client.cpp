@@ -323,7 +323,7 @@ int main (int argc, char *argv[]){
 					thisClient->checkKeepAlive(keepAliveTime);
 				}
 	        	else {//output a character
-	        		if ((c>='a' && c<='~')||(c>='A' && c<='Z')){
+	        		if ((c>='a' && c<='~')||(c>=' ' && c<='Z')){
 	        			buffer += c;
 	        			std::cerr<<c;
 	        		}
