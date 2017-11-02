@@ -1,21 +1,22 @@
 #include "server.h"
-
+//make function template if have time
 int server::findUserSlot(std::string remoteIPAddress,int remotePort){
-			int userSlot=-1;
-			int size=currentUsers.size();
-			for (int x=0; x <size; x++){
-				if (remoteIPAddress.compare(currentUsers[x].myIPAddress) == 0 && remotePort==currentUsers[x].myPort){
-					userSlot = x;
-					break;
-				}
-			}
-			return userSlot;		     			
+	int userSlot=-1;
+	int size=currentUsers.size();
+	for (int x=0; x <size; x++){
+		if (remoteIPAddress.compare(currentUsers[x].myIPAddress) == 0 && remotePort==currentUsers[x].myPort){
+			userSlot = x;
+			break;
+		}
+	}
+	return userSlot;		     			
 }
 
 void server::sendError(std::string theError, std::string ip, int port){
 	//create error message
 	struct text_error* my_text_error = new text_error;
 	my_text_error->txt_type = TXT_ERROR;
+	initBuffer(my_text_error->txt_error, SAY_MAX);
 	strcpy(my_text_error->txt_error,theError.c_str());
 	struct sockaddr_in remoteAddress;
 	remoteAddress.sin_family = AF_INET;
@@ -35,11 +36,11 @@ void server::purgeUsers(){
 	
 		double seconds = difftime(timeNow,currentUsers[x].lastSeen);
 		//std::cerr << "seconds for user "<<currentUsers[x].myUserName <<" : "<<seconds<<std::endl;
-		if (seconds>=120.0){
-			std::cerr << "server logs " <<currentUsers[x].myUserName <<" out during purge." << std::endl;
+		if (seconds>=serverTimeout){
+			std::cerr << "server logs " <<currentUsers[x++].myUserName <<" out during purge." << std::endl;
      		
 			currentUsers.erase(currentUsers.begin()+x);
-     		if (x+1<=currentUsers.size())//at least one more?  /***this deserves more testing, but seems to work
+     		if (x+1<=currentUsers.size())//at least one more?  this deserves more testing, but seems to work
      			x--;
      		else
      			break;						
@@ -56,7 +57,7 @@ void server::sendMessage(std::string fromUser, std::string toChannel, std::strin
 		std::vector<int> listOfPorts;
 		int size = listOfUsers.size();
 		for(int x =0 ; x < size; x++){
-			//if (x!=userSlot){
+			//if (x!=userSlot){//assuming send mail to sender as well
 				int position = findUserInfoPositionInVector(currentUsers,listOfUsers[x]);
 				if (position>-1){
 					listOfIPs.push_back(currentUsers[position].myIPAddress);
@@ -67,6 +68,9 @@ void server::sendMessage(std::string fromUser, std::string toChannel, std::strin
 		//create text_say
 		struct text_say* my_text_say= new text_say;
 		my_text_say->txt_type = TXT_SAY;
+		initBuffer(my_text_say->txt_channel, CHANNEL_MAX);
+		initBuffer(my_text_say->txt_text, SAY_MAX);
+		initBuffer(my_text_say->txt_username, USERNAME_MAX);
 		strcpy(my_text_say->txt_channel,toChannel.c_str());
 		strcpy(my_text_say->txt_text,message.c_str());
 		strcpy(my_text_say->txt_username,fromUser.c_str());
@@ -91,7 +95,7 @@ void server::handleRequest(char* myBuffer,int bytesRecvd){
 		std::cerr << "*buffer overflow, ignoring request" << std::endl;
 	}
 	else if (bytesRecvd >= logoutListKeepAliveSize) {
-		struct request* incoming_request = new request;
+		struct request* incoming_request;
 		incoming_request = (struct request*)myBuffer;
 		request_t identifier = incoming_request->req_type;
 		std::string remoteIPAddress=inet_ntoa(remoteAddress.sin_addr);
@@ -151,11 +155,9 @@ void server::handleRequest(char* myBuffer,int bytesRecvd){
      					channelFound=true;
      					position = x;
      					break;
-     					//std::cerr << "found channel "<<channelList[x].myChannelName<<std::endl;
      				}
 				}
      			if (!channelFound){//if channel not exist, add it
-     				//std::cerr << "channel not found "<<std::endl;
      				struct channelInfo newChannel;
      				newChannel.myChannelName = channelToJoin;
      				newChannel.myUsers.push_back(userName);
@@ -166,7 +168,7 @@ void server::handleRequest(char* myBuffer,int bytesRecvd){
 					for (unsigned int x=0; x <channelList[position].myUsers.size(); x++){
 						if (userName.compare(channelList[position].myUsers[x]) == 0){
 	     					userFound=true;
-	     					//std::cerr << "user already in channel"<<std::endl;//****possible error packet?
+	     					sendError("user already in channel",remoteIPAddress,remotePort);
 	     					break;
 						}
 					}
@@ -178,6 +180,7 @@ void server::handleRequest(char* myBuffer,int bytesRecvd){
 				currentUsers[userSlot].myActiveChannel = channelToJoin;
 				currentUsers[userSlot].lastSeen = time (NULL);
      		}
+
 		}
 		else if (identifier == REQ_LEAVE && bytesRecvd == joinLeaveWhoSize){//leave request
 			struct request_leave* incoming_leave_request;
@@ -248,14 +251,19 @@ void server::handleRequest(char* myBuffer,int bytesRecvd){
 			my_text_list->txt_type = TXT_LIST;
 			my_text_list->txt_nchannels = channelList.size();
 			for (unsigned int x=0; x<channelList.size(); x++){
+				initBuffer(my_text_list->txt_channels[x].ch_channel, CHANNEL_MAX);
 				strcpy(my_text_list->txt_channels[x].ch_channel,channelList[x].myChannelName.c_str());
 			}
 			if (sendto(mySocket, my_text_list, reserveSize, 0, (struct sockaddr *)&remoteAddress, remoteIPAddressSize)==-1){
 				perror("server sending channel list error");
 				exit(EXIT_FAILURE);
 			}
+			free(my_text_list->txt_channels);
 			free(my_text_list);
-			currentUsers[userSlot].lastSeen = time (NULL);
+			int userSlot = findUserSlot(remoteIPAddress,remotePort);
+			if (userSlot>=0){//user found
+ 				currentUsers[userSlot].lastSeen = time (NULL);
+ 			}
 		}
 		else if (identifier == REQ_WHO && bytesRecvd==joinLeaveWhoSize){//list of people on certain channel
 			struct request_who* incoming_request_who;
@@ -278,30 +286,43 @@ void server::handleRequest(char* myBuffer,int bytesRecvd){
 				struct text_who* my_text_who = (text_who*)malloc(reserveSize);
 				my_text_who->txt_type = TXT_WHO;
 				my_text_who->txt_nusernames = size;
+				initBuffer(my_text_who->txt_channel, CHANNEL_MAX);
 				strcpy(my_text_who->txt_channel,channelToQuery.c_str());
 				for (unsigned int x=0; x<channelList[position].myUsers.size(); x++){
+					initBuffer(my_text_who->txt_users[x].us_username, USERNAME_MAX);
 					strcpy(my_text_who->txt_users[x].us_username,channelList[position].myUsers[x].c_str());
 				}
 				if (sendto(mySocket, my_text_who, reserveSize, 0, (struct sockaddr *)&remoteAddress, sizeof(remoteAddress))==-1){
 					perror("server sending who is error");
 					exit(EXIT_FAILURE);
 				}
+				free(my_text_who);
+
 			}
-			
 		}
+		
+		
+
 	}
 }
+
+
 void server::serve(){
-	struct timeval timeOut;
+	setTimeout(mySocket,serverTimeout);
+	/*struct timeval timeOut;
 	timeOut.tv_sec = 120;
 	timeOut.tv_usec = 0;
 	int error1 = setsockopt(mySocket,SOL_SOCKET,SO_RCVTIMEO,(const char*)&timeOut,sizeof(struct timeval));
-	if (error1<0)
+	if (error1<0){
 		std::cerr<<"setsock error";
+		exit(EXIT_FAILURE);
+	}*/
 	time_t purgeTime = time (NULL);
-	while(true) {
+	//bool valgrind = true;
+	while(true/*valgrind*/) {
 		int bytesRecvd = 0;
 		char myBuffer[BUFFERLENGTH];
+		initBuffer(myBuffer,BUFFERLENGTH);
 		//std::cerr <<"bound IP address:" << myDomain << " waiting on Port: "<< myPort <<std::endl;
 		//printf("waiting on port %d\n", port.c_str);
 		bytesRecvd = recvfrom(mySocket, myBuffer, BUFFERLENGTH, 0, (struct sockaddr *)&remoteAddress, &addressSize);
@@ -309,7 +330,8 @@ void server::serve(){
 			time_t timer = time (NULL);
 			std::cerr<<"timeout!";
 			std::cerr << timer;
-			purgeUsers();
+			//purgeUsers();
+			//valgrind=false;
 			//check users still valid
 		}
 		else if (bytesRecvd>0){
@@ -317,11 +339,14 @@ void server::serve(){
 			handleRequest(myBuffer,bytesRecvd);	
 			time_t checkTime = time(NULL);	
 			double seconds = difftime(purgeTime,checkTime);
-			if (seconds>=120){
+			if (seconds>=serverTimeout){
 				std::cerr<<"timeout!";
-				purgeUsers();
+			//	purgeUsers();
 				purgeTime = time(NULL);	
+				//valgrind=false;
 			}
+
+
 		}		
 	}
 }
@@ -350,10 +375,11 @@ server::server(char* domain, char* port){
 
 int main (int argc, char *argv[]){
 	if (argc!=3){
-		std::cerr<<"Usage: ./server domain_name port_num"<<std::endl;
+		std::cerr<<argv[1]<<"Usage: ./server domain_name port_num"<<std::endl;
 		exit(EXIT_FAILURE);
 	}
 	server* myServer = new server(argv[1],argv[2]);
+	sleep(1);
 	delete(myServer);
 	return 0;
 }

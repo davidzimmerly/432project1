@@ -19,8 +19,18 @@ const int saySize = 132;
 const int logoutListKeepAliveSize = 4;
 const int maxConnections = 256;
 const int errorSize = 68;
+const int clientKeepAlive = 60;
+const int serverTimeout = 10;
+const int clientResponseWaitTime = 5;
 
 #define BUFFERLENGTH  1024
+
+void initBuffer(char* buf,int size){
+	for (int x=0;x<size;x++){
+		buf[x]='\0';
+	}
+}
+
 
 struct userInfo
 {
@@ -70,6 +80,16 @@ int findUserInfoPositionInVector(std::vector<userInfo> inputV, std::string input
 void truncate(std::string& input, unsigned int max){
 	if (input.length()>max) //format input if too big
 		input = input.substr(0,max);
+}
+void setTimeout(int mySocket, int seconds){
+	struct timeval timeOut;
+	timeOut.tv_sec = seconds;
+	timeOut.tv_usec = 0;
+	int error1 = setsockopt(mySocket,SOL_SOCKET,SO_RCVTIMEO,(const char*)&timeOut,sizeof(struct timeval));
+	if (error1<0){
+		std::cerr<<"setsock error";
+		exit(EXIT_FAILURE);
+	}
 }
 static struct termios oldterm;
 /* Returns -1 on error, 0 on success */

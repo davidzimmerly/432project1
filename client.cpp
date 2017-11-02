@@ -8,7 +8,7 @@ void client::keepAlive(){
 void client::checkKeepAlive(time_t &keepAliveTime){
 	time_t checkTime = time(NULL);	
 	double seconds = difftime(checkTime,keepAliveTime);//note:order matters here
-	if (seconds>=60){
+	if (seconds>=clientKeepAlive){
 		//std::cerr<<"timeout! sending keepAlive"<<std::endl;
 		keepAlive();
 		keepAliveTime = time(NULL);	
@@ -81,6 +81,7 @@ void client::login(){
 	truncate(myUserName,CHANNEL_MAX-1);
 	struct request_login* my_request_login= new request_login;
 	my_request_login->req_type = REQ_LOGIN;
+	initBuffer((char*)my_request_login->req_username, USERNAME_MAX);
 	strcpy(my_request_login->req_username,myUserName.c_str());
 	send((char*)my_request_login,loginSize,"sendto login");
 	delete(my_request_login);
@@ -105,15 +106,25 @@ void client::say(std::string textfield){
 	truncate(textfield,SAY_MAX-1);
 	struct request_say* my_request_say= new request_say;
 	my_request_say->req_type = REQ_SAY;
+	initBuffer(my_request_say->req_channel, CHANNEL_MAX);
+	initBuffer(my_request_say->req_text, SAY_MAX);
 	strcpy(my_request_say->req_channel,myActiveChannel.c_str());
 	strcpy(my_request_say->req_text,textfield.c_str());
 	send((char*)my_request_say,sayRequestSize,"sending a message to channel  (from client)");
 	delete(my_request_say);
 }
 void client::send(char* buf,int size,std::string error){
-	if (sendto(mySocket, buf, size, 0, (struct sockaddr *)&remoteAddress, sizeof(remoteAddress))==-1){
+	setTimeout(mySocket,clientResponseWaitTime);//i set this timeout so client won't hang if no response, but can't figure out how to detct it, but doesn't crash client at least
+	int sending=99123;
+	sending = sendto(mySocket, buf, size, 0, (struct sockaddr *)&remoteAddress, sizeof(remoteAddress));
+	std::cerr << sending <<std::endl;
+	if (sending==-1){
 		perror(error.c_str());
+		cooked_mode();
 		exit(EXIT_FAILURE);
+	}
+	else if (sending==99123){
+		std::cerr << sending <<"  *Server Timed Out Sending Message!" << std::endl;
 	}
 }
 void client::switchChannel(std::string channel){
@@ -126,6 +137,8 @@ void client::join(std::string channel){
 	truncate(channel,CHANNEL_MAX-1);
 	struct request_join* my_request_join= new request_join;
 	my_request_join->req_type = REQ_JOIN;
+	initBuffer(my_request_join->req_channel, CHANNEL_MAX);
+	
 	strcpy(my_request_join->req_channel,channel.c_str());
 	myActiveChannel = channel;
 	if (findStringPositionInVector(myChannels,channel)==-1)
@@ -135,17 +148,23 @@ void client::join(std::string channel){
 }
 void client::leave(std::string channel){
 	truncate(channel,CHANNEL_MAX-1);
-	struct request_leave* my_request_leave= new request_leave;
-	my_request_leave->req_type = REQ_LEAVE;
-	strcpy(my_request_leave->req_channel,channel.c_str());
-	send((char*)my_request_leave,joinLeaveWhoSize,"sendto request to join from client");
-	delete(my_request_leave);
+	if (findStringPositionInVector(myChannels,channel)>-1){
+		struct request_leave* my_request_leave= new request_leave;
+		my_request_leave->req_type = REQ_LEAVE;
+		initBuffer(my_request_leave->req_channel, CHANNEL_MAX);	
+		strcpy(my_request_leave->req_channel,channel.c_str());
+		send((char*)my_request_leave,joinLeaveWhoSize,"sendto request to join from client");
+		delete(my_request_leave);
+	}
+	else
+		std::cerr << "*error, you have not joined channel "<<channel << std::endl;		
 }	
 void client::who(std::string channel){
 	truncate(channel,CHANNEL_MAX-1);
 	char replyBuffer[BUFFERLENGTH];
 	struct request_who* my_request_who= new request_who;
 	my_request_who->req_type = REQ_WHO;
+	initBuffer(my_request_who->req_channel, CHANNEL_MAX);
 	strcpy(my_request_who->req_channel,channel.c_str());
 	send((char*)my_request_who,joinLeaveWhoSize,"requesting who in channel (from client)");
 	int bytesRecvd = getServerResponse(false,replyBuffer);
@@ -214,8 +233,7 @@ bool client::parseCommand(std::string buffer){
        		std::cerr << "*Unknown command" << std::endl;
        }
        else{
-       			say(buffer);
-       		
+    		say(buffer);       		
        }
     }
     return running;
@@ -225,8 +243,7 @@ int main (int argc, char *argv[]){
 	if (argc!=4){
 		std::cerr<<"Usage: ./client server_socket server_port username"<<std::endl;
 		exit(EXIT_FAILURE);
-	}
-	
+	}	
 	client* thisClient = new client(argv[1],argv[2],argv[3]);
 	thisClient->login();
 	thisClient->join("Common");
@@ -241,7 +258,7 @@ int main (int argc, char *argv[]){
 	time_t keepAliveTime = time (NULL);
 	
 	while (running){
-		timeOut->tv_sec = 60;
+		timeOut->tv_sec = clientKeepAlive;
 		timeOut->tv_usec = 0;
 		char replyBuffer[BUFFERLENGTH];
 		int err;
@@ -250,11 +267,15 @@ int main (int argc, char *argv[]){
 		FD_SET (thisClient->mySocket, &readfds);
 		FD_SET (STDIN_FILENO, &readfds);
 		err = select (thisClient->mySocket + 1, &readfds, NULL, NULL, timeOut);
-		if (err < 0) perror ("select failed");
+		if (err < 0) {
+			perror ("select failed");
+			cooked_mode();
+			exit(EXIT_FAILURE);
+		}
 		else if (err==0){
-			std::cerr<<"keep alive sent "<<std::endl;
+			//std::cerr<<"keep alive sent "<<std::endl;
 			thisClient->keepAlive();
-			timeOut->tv_sec = 60;
+			timeOut->tv_sec = clientKeepAlive;
 		}
 		else {
 	        if (FD_ISSET (thisClient->mySocket, &readfds)){
@@ -293,8 +314,9 @@ int main (int argc, char *argv[]){
 	        }
 		}    	
 	}
+	cooked_mode();
 	thisClient->logout();
 	delete(thisClient);
-	delete(timeOut);
+	delete(timeOut);//*/
 	return 0;
 }
