@@ -29,7 +29,6 @@ void server::sendError(std::string theError, std::string ip, int port){
 	delete(my_text_error);
 }
 void server::purgeUsers(){
-	std::cerr << "purgeUsers initiated "<<std::endl;
 	time_t timeNow = time(NULL);
 	for (unsigned int x=0; x<currentUsers.size(); x++){
 		double seconds = difftime(timeNow,currentUsers[x].lastSeen);
@@ -229,7 +228,7 @@ void server::handleRequest(char* myBuffer,int bytesRecvd){
 				my_text_list->txt_type = TXT_LIST;
 				my_text_list->txt_nchannels = channelList.size();
 				for (unsigned int x=0; x<channelList.size(); x++){
-					initBuffer(my_text_list->txt_channels[x].ch_channel, CHANNEL_MAX);
+					initBuffer((char*)my_text_list->txt_channels[x].ch_channel, CHANNEL_MAX);
 					strcpy(my_text_list->txt_channels[x].ch_channel,channelList[x].myChannelName.c_str());
 				}
 				if (sendto(mySocket, my_text_list, reserveSize, 0, (struct sockaddr *)&remoteAddress, remoteIPAddressSize)==-1){
@@ -270,7 +269,7 @@ void server::handleRequest(char* myBuffer,int bytesRecvd){
 					initBuffer(my_text_who->txt_channel, CHANNEL_MAX);
 					strcpy(my_text_who->txt_channel,channelToQuery.c_str());
 					for (unsigned int x=0; x<channelList[position].myUsers.size(); x++){
-						initBuffer(my_text_who->txt_users[x].us_username, USERNAME_MAX);
+						initBuffer((char*)my_text_who->txt_users[x].us_username, USERNAME_MAX);
 						strcpy(my_text_who->txt_users[x].us_username,channelList[position].myUsers[x].myUserName.c_str());
 					}
 					if (sendto(mySocket, my_text_who, reserveSize, 0, (struct sockaddr *)&remoteAddress, sizeof(remoteAddress))==-1){
@@ -319,14 +318,16 @@ void server::leave(std::string userName, std::string channelToLeave){
 		}
 	}
 }
+//bool 
 void server::checkPurge(time_t &purgeTime){
 	time_t checkTime = time(NULL);	
 	double seconds = difftime(checkTime,purgeTime);
 	if (seconds>=serverTimeout){
 		purgeUsers();
 		purgeTime = time(NULL);	
-		//valgrind=false;
-	}			
+		//return false;
+	}
+	//return true;			
 }
 void server::serve(){
 	setTimeout(mySocket,serverTimeout/25);
@@ -340,9 +341,8 @@ void server::serve(){
 		//printf("waiting on port %d\n", port.c_str);
 		bytesRecvd = recvfrom(mySocket, myBuffer, BUFFERLENGTH, 0, (struct sockaddr *)&remoteAddress, &addressSize);
 		if (bytesRecvd<=0){//recvfrom timeout : never going to happen unless all users stop pinging in
+			/*valgrind = */
 			checkPurge(purgeTime);
-			//valgrind=false;
-			
 		}
 		else if (bytesRecvd>0){
 			//printf("received %d bytes\n", bytesRecvd);
