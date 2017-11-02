@@ -27,7 +27,7 @@ int client::getServerResponse(bool nonblocking, char* replyBuffer){
 void client::handleServerResponse(char* replyBuffer,int bytesRecvd){
 	if (bytesRecvd>=BUFFERLENGTH){
 		std::cerr << "*buffer overflow, ignoring request" << std::endl;
-		
+
 	}
 	else{
 		struct text* incoming_text;
@@ -126,16 +126,14 @@ void client::say(std::string textfield){
 }
 void client::send(char* buf,int size,std::string error){
 	setTimeout(mySocket,clientResponseWaitTime);//i set this timeout so client won't hang if no response, but can't figure out how to detct it, but doesn't crash client at least
-	int sending=99123;
+	int sending=0;
 	sending = sendto(mySocket, buf, size, 0, (struct sockaddr *)&remoteAddress, sizeof(remoteAddress));
 	if (sending==-1){
 		perror(error.c_str());
 		cooked_mode();
 		exit(EXIT_FAILURE);
 	}
-	else if (sending==99123){
-		std::cerr << sending <<"  *Server Timed Out Sending Message!" << std::endl;
-	}
+	
 }
 void client::switchChannel(std::string channel){
 	if (findStringPositionInVector(myChannels,channel)>-1)

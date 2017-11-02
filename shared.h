@@ -55,7 +55,7 @@ int findStringPositionInVector(std::vector<std::string> inputV, std::string inpu
 struct channelInfo
 {
 	std::string myChannelName;
-	std::vector<std::string> myUsers;
+	std::vector<struct userInfo> myUsers;
 };
 int findChannelInfoPositionInVector(std::vector<channelInfo> inputV, std::string inputS){
 	int found = -1;
