@@ -1,4 +1,5 @@
 #include "client.h"
+//cis432 fall 2017 David Zimmerly
 void client::keepAlive(){
 	struct request_keep_alive* my_request_keep_alive = new request_keep_alive;
 	my_request_keep_alive->req_type = REQ_KEEP_ALIVE;

@@ -10,6 +10,7 @@
 #include <sys/select.h>
 #include <sys/time.h> //FD_SET, FD_ISSET, FD_ZERO macros
 #include "duckchat.h"
+//cis432 fall 2017 David Zimmerly
 
 const int loginSize = 36;
 const int joinLeaveWhoSize = 36;

@@ -1,5 +1,5 @@
 #include "server.h"
-//make function template if have time
+//cis432 fall 2017 David Zimmerly
 int server::findUserSlot(std::string remoteIPAddress,int remotePort){
 	int userSlot=-1;
 	int size=currentUsers.size();
@@ -235,7 +235,6 @@ void server::handleRequest(char* myBuffer,int bytesRecvd){
 					perror("server sending channel list error");
 					exit(EXIT_FAILURE);
 				}
-				//free(my_text_list->txt_channels);//need to re valgrind, this tested out to be wrong free
 				free(my_text_list);
 				currentUsers[userSlot].lastSeen = time (NULL);
  			}
@@ -286,12 +285,8 @@ void server::handleRequest(char* myBuffer,int bytesRecvd){
  				sendError("*unknown user (please try again in a few minutes if reconnecting.)",remoteIPAddress,remotePort);
  			}
 		}
-		
-
 	}
 }
-
-
 void server::leave(std::string userName, std::string channelToLeave){
 	std::cerr << "server: " << userName <<" leaves channel " << channelToLeave <<std::endl;
 	int masterChannelListPosition =-1;

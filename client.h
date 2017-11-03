@@ -1,4 +1,5 @@
 #include "shared.h"
+//cis432 fall 2017 David Zimmerly
 class client{
 	public:
 		int mySocket;
