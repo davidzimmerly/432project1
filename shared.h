@@ -22,6 +22,9 @@ const int errorSize = 68;
 const int clientKeepAlive = 60;
 const int serverTimeout = 120;
 const int clientResponseWaitTime = 5;
+const int s2sJoinLeaveSize = 36;
+const int s2sSaySize = 140;
+
 
 #define BUFFERLENGTH 16384
 /* |||||||||||| helper functions and constants ||||||||||||||||||||||||||   */

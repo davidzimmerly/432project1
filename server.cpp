@@ -285,6 +285,15 @@ void server::handleRequest(char* myBuffer,int bytesRecvd){
  				sendError("*unknown user (please try again in a few minutes if reconnecting.)",remoteIPAddress,remotePort);
  			}
 		}
+		else if (identifier == REQ_S2S_JOIN && bytesRecvd==s2sJoinLeaveSize){
+			std::cerr << "received s2s join request" << std::endl;
+		}
+		else if (identifier == REQ_S2S_LEAVE && bytesRecvd==s2sJoinLeaveSize){
+			std::cerr << "received s2s leave request" << std::endl;
+		}
+		else if (identifier == REQ_S2S_SAY && bytesRecvd==s2sSaySize){
+			std::cerr << "received s2s say request" << std::endl;
+		}
 	}
 }
 void server::leave(std::string userName, std::string channelToLeave){
