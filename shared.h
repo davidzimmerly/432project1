@@ -38,6 +38,11 @@ struct userInfo
 	int myPort;
 	time_t lastSeen;
 };
+struct serverInfo
+{
+	std::string myIPAddress;
+	int myPort;
+};
 int findStringPositionInVector(std::vector<std::string> inputV, std::string inputS){
 	int found = -1;
 	for (unsigned int x=0; x<inputV.size(); x++) {

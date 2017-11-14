@@ -375,15 +375,31 @@ server::server(char* domain, char* port){
 		perror("bind failed");
 		exit(EXIT_FAILURE);
 	}
-	serve();
+	//serve();
 }
 
 int main (int argc, char *argv[]){
-	if (argc!=3){
-		std::cerr<<argv[1]<<"Usage: ./server domain_name port_num"<<std::endl;
+	if (argc<3 || argc%2==0){
+		std::cerr/*argv[1]*/<<"Usage: ./server domain_name port_num neighbor_server_1_IP neighbor_server_1_Port... neighbor_serverb_X_IP neighbor_serverb_X_Port"<<std::endl;
 		exit(EXIT_FAILURE);
 	}
+	int count =5;
 	server* myServer = new server(argv[1],argv[2]);
+	
+	while (argc>=count){
+		
+		struct serverInfo newNeighbor;
+		newNeighbor.myIPAddress = argv[count-2];
+		newNeighbor.myPort =  std::atoi(argv[count-1]);//lets do some input validation at some point
+		std::cerr << "setting new neightbor ip "<< argv[count-2] << std::endl;
+		std::cerr << "setting new neightbor port "<< std::atoi(argv[count-1]) << std::endl;
+		myServer->serverList.push_back(newNeighbor);
+		count +=2; 
+	
+
+
+	}
+	myServer->serve();
 	delete(myServer);
 	return 0;
 }
