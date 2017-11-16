@@ -29,8 +29,8 @@ class server{
 			else
 				return false;
 		}
-		void sendS2Sjoin(std::string channel,std::string senderIP, std::string senderPort){//, char* buffer, bool useBuffer){
-			std::cerr << myIP <<":"<<myPort<< " send sendSRSjoin"<<std::endl;
+		void sendS2Sjoin(std::string channel,std::string senderIP, int senderPort){//, char* buffer, bool useBuffer){
+			//std::cerr << myIP <<":"<<myPort<< " send sendSRSjoin"<<std::endl;
 			struct request_s2s_join* my_request_s2s_join= new request_s2s_join;
 			initBuffer(my_request_s2s_join->req_channel, CHANNEL_MAX);
 			my_request_s2s_join->req_type = REQ_S2S_JOIN;
@@ -39,7 +39,7 @@ class server{
 
 
 			for (std::vector<serverInfo>::iterator iter = serverList.begin(); iter != serverList.end(); ++iter) {
-	 			if (!(((*iter).myIPAddress==senderIP)&&(*iter).myPort==std::atoi(senderPort.c_str()))){
+	 			if (!(((*iter).myIPAddress==senderIP)&&(*iter).myPort==senderPort)){
 						struct sockaddr_in remoteAddress;
 						remoteAddress.sin_family = AF_INET;
 						remoteAddress.sin_port = htons((*iter).myPort);

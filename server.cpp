@@ -98,7 +98,8 @@ void server::sendMessage(std::string fromUser/*, int userPosition*/, std::string
 void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAddress, int remotePort){
 	//std::string remoteIPAddress=inet_ntoa(remoteAddress.sin_addr);
 	//int remotePort =htons(remoteAddress.sin_port);
-	std::cerr<< "remotepo0rt:"<< remotePort<<std::endl;
+	std::cerr<< "remoteport:"<< remotePort<<std::endl;
+
 	if (bytesRecvd>=BUFFERLENGTH){
 		std::cerr << "*buffer overflow, ignoring request" << std::endl;
 		sendError("*buffer overflow error",remoteIPAddress,remotePort);
@@ -185,7 +186,7 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
      				newChannel.myUsers.push_back(newUserInfo);
      				mySubscribedChannels.push_back(newChannel);
      				//send s2s join to neighbors
-     				sendS2Sjoin(channelToJoin,myIP,myPort);
+     				sendS2Sjoin(channelToJoin,remoteIPAddress,remotePort);
 
      			}
      			else{//channel was found
@@ -350,7 +351,7 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 			if (!amSubscribed(channelToJoin)){
 			//then subscribe to channel if not:
 
-				std::cerr << myIP <<":"<<myPort<< " s2s adding channel " << channelToJoin <<std::endl;
+				//std::cerr << myIP <<":"<<myPort<< " s2s adding channel " << channelToJoin <<std::endl;
  				struct channelInfo newChannel;
  				newChannel.myChannelName = channelToJoin;
  				mySubscribedChannels.push_back(newChannel);
@@ -360,7 +361,7 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 			
 				//for each neighbor, send join request
 			
-				sendS2Sjoin(channelToJoin,myIP,myPort);
+				sendS2Sjoin(channelToJoin,remoteIPAddress,remotePort);
 			/*	for (std::vector<serverInfo>::iterator iter = serverList.begin(); iter != serverList.end(); ++iter) {
 	 				//std::cerr << "neighbor..." << std::endl;
 	 				struct sockaddr_in remoteAddress;
@@ -453,15 +454,19 @@ void server::serve(){
 			checkPurge(purgeTime);
 		}
 		else if (bytesRecvd>0){
-			//printf("received %d bytes\n", bytesRecvd);
-			handleRequest(myBuffer,bytesRecvd,inet_ntoa(remoteAddress.sin_addr),htons(remoteAddress.sin_port));	
+			printf("received %d bytes\n", bytesRecvd);
+			
+			std::string remoteIPAddress=inet_ntoa(remoteAddress.sin_addr);
+			int remotePort =(remoteAddress.sin_port);
+			std::cerr << remoteIPAddress << ":" <<remotePort<<std::endl;
+			handleRequest(myBuffer,bytesRecvd,remoteIPAddress,remotePort);//,inet_ntoa(remoteAddress.sin_addr),htons(remoteAddress.sin_port));	
 			checkPurge(purgeTime);
 		}		
 	}
 }
 server::server(char* domain, char* port){
 	myIP = std::string(domain);
-	myPort = std::atoi(port);
+	myPort = std::string(port);
 	addressSize = sizeof(myAddress);
 	bytesRecvd=0;
 	mySocket=socket(AF_INET, SOCK_DGRAM, 0);
@@ -475,7 +480,7 @@ server::server(char* domain, char* port){
 	myAddress.sin_family = AF_INET;
 	myAddress.sin_addr.s_addr = inet_addr(domain);//htonl(INADDR_ANY);//inet_addr("128.223.4.39");//
 	myAddress.sin_port = htons(std::atoi(port));
-	if (bind(mySocket, (struct sockaddr *)&myAddress, sizeof(myAddress)) < 0) {
+	if (::bind(mySocket, (struct sockaddr *)&myAddress, sizeof(myAddress)) < 0) {
 		perror("bind failed");
 		exit(EXIT_FAILURE);
 	}
