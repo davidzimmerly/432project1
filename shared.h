@@ -10,9 +10,10 @@
 #include <sys/select.h>
 #include <sys/time.h> //FD_SET, FD_ISSET, FD_ZERO macros
 #include "duckchat.h"
+#include <fcntl.h> //open
 //cis432 fall 2017 David Zimmerly
 
-const int loginSize = 36;
+const int loginSize = sizeof(struct request_login);//36;
 const int joinLeaveWhoSize = 36;
 const int sayRequestSize = 100;
 const int saySize = 132;
@@ -42,6 +43,7 @@ struct serverInfo
 {
 	std::string myIPAddress;
 	int myPort;
+	std::vector<std::string> myChannels;
 };
 int findStringPositionInVector(std::vector<std::string> inputV, std::string inputS){
 	int found = -1;

@@ -16,6 +16,8 @@
 #define USERNAME_MAX 32
 #define CHANNEL_MAX 32
 #define SAY_MAX 64
+#define ID_MAX 8
+
 
 /* Define some types for designating request and text codes */
 typedef int request_t;
@@ -89,6 +91,20 @@ struct request_who {
 struct request_keep_alive {
         request_t req_type; /* = REQ_KEEP_ALIVE */
 } packed;
+
+struct request_s2s_join {
+        request_t req_type; /* = REQ_S2S_JOIN */
+        char req_channel[CHANNEL_MAX]; 
+} packed;
+
+struct request_s2s_say {
+        request_t req_type; /* = REQ_S2S_SAY */
+        char req_channel[CHANNEL_MAX]; 
+        char req_ID[ID_MAX];
+        char req_username[USERNAME_MAX];
+        char req_text[SAY_MAX];
+} packed;
+
 
 /* This structure is used for a generic text type, to the client. */
 struct text {
