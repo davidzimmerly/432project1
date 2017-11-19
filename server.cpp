@@ -83,13 +83,13 @@ void server::sendMessage(std::string fromUser/*, int userPosition*/, std::string
 			remoteAddress.sin_port = htons(listOfUsers[x].myPort);
 			remoteAddress.sin_addr.s_addr = inet_addr(listOfUsers[x].myIPAddress.c_str());\
 			//std::cerr<< " sending mail to "<<listOfUsers[x].myUserName<<" at ip "<<listOfUsers[x].myIPAddress<< " on port "<< listOfUsers[x].myPort<<std::endl;
-			if (sendto(mySocket, (char*)my_text_say, saySize, 0, (struct sockaddr *)&remoteAddress, sizeof(remoteAddress))==-1){
+			if (sendto(mySocket, (char*)my_text_say, saySize, 0, (struct sockaddr *)&remoteAddress, sizeof(struct sockaddr_in))==-1){
 				perror("server sending mail to multiple users");
 				exit(EXIT_FAILURE);
 			}
 		}
 		//send s2s say			
-		sendSRSsay(fromUser,toChannel,message,"",0);//we won't check this ip/port since should be a user not server
+		sendS2Ssay(fromUser,toChannel,message,"",0);//we won't check this ip/port since should be a user not server
 				
 		//std::cerr << myIP <<":"<<myPort <<" "<<currentUsers[userPosition].myIPAddress<<":"<<currentUsers[userPosition].myPort<< " send  " <<channelToJoin<<std::endl;					
 		delete(my_text_say);
@@ -98,7 +98,7 @@ void server::sendMessage(std::string fromUser/*, int userPosition*/, std::string
 void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAddress, int remotePort){
 	//std::string remoteIPAddress=inet_ntoa(remoteAddress.sin_addr);
 	//int remotePort =htons(remoteAddress.sin_port);
-	std::cerr<< "remoteport:"<< remotePort<<std::endl;
+	//std::cerr<< "remoteport:"<< remotePort<<std::endl;
 
 	if (bytesRecvd>=BUFFERLENGTH){
 		std::cerr << "*buffer overflow, ignoring request" << std::endl;
@@ -108,7 +108,7 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 		struct request* incoming_request;
 		incoming_request = (struct request*)myBuffer;
 		request_t identifier = incoming_request->req_type;
-		socklen_t remoteIPAddressSize = sizeof(remoteAddress);
+		//socklen_t remoteIPAddressSize = sizeof(remoteAddress);
 		if (identifier == REQ_LOGIN && bytesRecvd==loginSize){//login
 			struct request_login* incoming_login_request;
 			incoming_login_request = (struct request_login*)myBuffer;
@@ -186,7 +186,7 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
      				newChannel.myUsers.push_back(newUserInfo);
      				mySubscribedChannels.push_back(newChannel);
      				//send s2s join to neighbors
-     				sendS2Sjoin(channelToJoin,remoteIPAddress,remotePort);
+     				sendS2Sjoin(channelToJoin,myIP,myPort);
 
      			}
      			else{//channel was found
@@ -283,7 +283,7 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 					initBuffer((char*)my_text_list->txt_channels[x].ch_channel, CHANNEL_MAX);
 					strcpy(my_text_list->txt_channels[x].ch_channel,mySubscribedChannels[x].myChannelName.c_str());
 				}
-				if (sendto(mySocket, my_text_list, reserveSize, 0, (struct sockaddr *)&remoteAddress, remoteIPAddressSize)==-1){
+				if (sendto(mySocket, my_text_list, reserveSize, 0, (struct sockaddr *)&remoteAddress, sizeof(struct sockaddr_in))==-1){
 					perror("server sending channel list error");
 					exit(EXIT_FAILURE);
 				}
@@ -361,7 +361,7 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 			
 				//for each neighbor, send join request
 			
-				sendS2Sjoin(channelToJoin,remoteIPAddress,remotePort);
+				sendS2Sjoin(channelToJoin,myIP,myPort);
 			/*	for (std::vector<serverInfo>::iterator iter = serverList.begin(); iter != serverList.end(); ++iter) {
 	 				//std::cerr << "neighbor..." << std::endl;
 	 				struct sockaddr_in remoteAddress;
@@ -387,15 +387,16 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 
 
 		}
-		else if (identifier == REQ_S2S_SAY && bytesRecvd==s2sSaySize){
-			std::cerr << "received s2s say request" << std::endl;
-
+		else if (identifier == REQ_S2S_SAY/* && bytesRecvd==s2sSaySize*/){
+//			std::cerr << "received s2s say request" << std::endl;
+			
 
 			struct request_s2s_say* incoming_request_s2s_say;
 			incoming_request_s2s_say = (struct request_s2s_say*)myBuffer;
 			std::string channel = std::string(incoming_request_s2s_say->req_channel);
 			std::string userName = std::string(incoming_request_s2s_say->req_username);
-			std::string message = std::string(incoming_request_s2s_say->req_username);
+			std::string message = std::string(incoming_request_s2s_say->req_text);
+			std::cerr << myIP <<":"<<myPort <<" "<<remoteIPAddress<<":"<<remotePort<< " recv S2S Say " <<userName<<" "<<channel<<" "<<'\"'<<message<<'\"'<<std::endl;					
 
 		}
 	}
@@ -457,7 +458,7 @@ void server::serve(){
 			printf("received %d bytes\n", bytesRecvd);
 			
 			std::string remoteIPAddress=inet_ntoa(remoteAddress.sin_addr);
-			int remotePort =(remoteAddress.sin_port);
+			short unsigned int remotePort =ntohs(remoteAddress.sin_port);
 			std::cerr << remoteIPAddress << ":" <<remotePort<<std::endl;
 			handleRequest(myBuffer,bytesRecvd,remoteIPAddress,remotePort);//,inet_ntoa(remoteAddress.sin_addr),htons(remoteAddress.sin_port));	
 			checkPurge(purgeTime);
@@ -469,6 +470,12 @@ server::server(char* domain, char* port){
 	myPort = std::string(port);
 	addressSize = sizeof(myAddress);
 	bytesRecvd=0;
+	bindSocket();
+
+	//serve();
+}
+
+void server::bindSocket(){
 	mySocket=socket(AF_INET, SOCK_DGRAM, 0);
 	if (mySocket<0) {
 		perror ("socket() failed");
@@ -478,13 +485,13 @@ server::server(char* domain, char* port){
 	//newChannel.myChannelName = "Common";
 	//mySubscribedChannels.push_back(newChannel);
 	myAddress.sin_family = AF_INET;
-	myAddress.sin_addr.s_addr = inet_addr(domain);//htonl(INADDR_ANY);//inet_addr("128.223.4.39");//
-	myAddress.sin_port = htons(std::atoi(port));
-	if (::bind(mySocket, (struct sockaddr *)&myAddress, sizeof(myAddress)) < 0) {
+	myAddress.sin_addr.s_addr = inet_addr(myIP.c_str());//htonl(INADDR_ANY);//inet_addr("128.223.4.39");//
+	myAddress.sin_port = htons(std::atoi(myPort.c_str()));
+	
+	if (bind(mySocket, (struct sockaddr *)&myAddress, sizeof myAddress ) < 0) {
 		perror("bind failed");
 		exit(EXIT_FAILURE);
-	}
-	//serve();
+	}	
 }
 
 int main (int argc, char *argv[]){
