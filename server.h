@@ -4,6 +4,7 @@ class server{
 	public:
 		std::string myIP;
 		std::string myPort;
+		int myPortInt;
 		server(char* domain, char* port);
 		std::vector<serverInfo> serverList;
 		void serve();
@@ -28,7 +29,7 @@ class server{
 		void sendS2Sleave(std::string channel,std::string senderIP, std::string senderPort);
 		void sendS2Ssay(std::string fromUser, std::string toChannel,std::string message,std::string senderIP, int senderPort);
 		void handleSay(std::string fromIP, int fromPort, std::string channel, std::string message);
-		void handleSayUser(std::string user, std::string channel, std::string message, std::string fromUser);
+		void handleS2SSay(std::string user, std::string channel, std::string message, std::string fromUser);
 		int findServerInfoPositionInVector(std::string ip, int port){
 			int found = -1;
 			for (unsigned int x=0; x<serverList.size(); x++) {
