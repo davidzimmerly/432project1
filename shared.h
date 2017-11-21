@@ -45,6 +45,12 @@ struct serverInfo
 	int myPort;
 	std::vector<std::string> myChannels;
 };
+struct requestIDInfo
+{
+	char id[8];
+	time_t timeStamp;
+};
+
 int findStringPositionInVector(std::vector<std::string> inputV, std::string inputS){
 	int found = -1;
 	for (unsigned int x=0; x<inputV.size(); x++) {
@@ -80,6 +86,8 @@ int findUserInfoPositionInVector(std::vector<userInfo> inputV, std::string input
 	}
 	return found;
 }		
+		
+
 void truncate(std::string& input, unsigned int max){
 	if (input.length()>max) //format input if too big
 		input = input.substr(0,max);
