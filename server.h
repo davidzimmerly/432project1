@@ -57,7 +57,7 @@ class server{
 			else
 				return false;
 		}		
-		void reSeed(){
+		void seedRandom(){
 			char myRandomData[8];
     		//size_t randomDataLen = 0;
     		ssize_t result;
