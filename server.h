@@ -49,6 +49,12 @@ class server{
 				}
 			}
 			return found;
+		}
+		bool isFromServer(std::string ip, int port){
+			if (findServerInfoPositionInVector(ip,port)>-1)
+				return true;
+			else
+				return false;
 		}		
 
 };
