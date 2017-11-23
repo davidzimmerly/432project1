@@ -9,6 +9,7 @@ class server{
 		std::vector<serverInfo> serverList;
 		void serve();
 	private:
+		int randomPosition;
 		struct sockaddr_in myAddress,remoteAddress;
 		int bytesRecvd,mySocket;
 		socklen_t addressSize;
@@ -40,10 +41,10 @@ class server{
 			}
 			return found;
 		}
-		int findID(char* input){
+		int findID(std::string input){
 			int found = -1;
 			for (unsigned int x=0; x<myRecentRequests.size(); x++) {
-				if (strcmp(myRecentRequests[x].id,input)==0){
+				if (strcmp(input.c_str(),myRecentRequests[x].id)==0){
 					found=x;
 					break;
 				}
@@ -56,5 +57,40 @@ class server{
 			else
 				return false;
 		}		
+		void reSeed(){
+			char myRandomData[8];
+    		//size_t randomDataLen = 0;
+    		ssize_t result;
+			int randomData = open("/dev/random", O_RDONLY);
+			if (randomData < 0)
+			{
+			    std::cerr << "error reading random data "<< std::endl;
+			    exit(EXIT_FAILURE);
+			}
+			else
+			{
+			
+			    //while (randomDataLen < sizeof myRandomData)
+			    //{
+			        result = read(randomData+randomPosition, myRandomData, sizeof myRandomData);
+			        randomPosition+=8;
+			        if (result < 0)
+			        {
+			            std::cerr << "error reading random data "<< std::endl;
+			    		exit(EXIT_FAILURE);
+			        }
+			        
+			    //}
+		    //std::cerr << "random data (int):"<<std::endl;
+		    
+		    	std::cerr<<"seeding with: "<<(unsigned long long)myRandomData<<" ";
+		    	srand((unsigned long long)myRandomData);
+		    
+		    //std::cerr<<std::endl;
+		    //strcpy(my_request_s2s_say->req_ID,myRandomData);
+
+	    	close(randomData);
+    		}
+		}
 
 };

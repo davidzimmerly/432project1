@@ -373,26 +373,34 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 			char REQ_ID[8];
 			strcpy(REQ_ID,incoming_request_s2s_say->req_ID);
 			//verify new id:
-			int checkID = findID(REQ_ID);
+			int checkID = findID(std::string(REQ_ID));
 
 			if (checkID>-1){
-				std::cerr<< "found duplicate id"<<std::endl;
+				std::cerr<< "found duplicate id "<<(unsigned long long)REQ_ID<<std::endl;
 				time_t checkTime = time(NULL);	
 				double seconds = difftime(checkTime,myRecentRequests[checkID].timeStamp);
 				if (seconds>serverTimeout){
 					myRecentRequests.erase(myRecentRequests.begin()+checkID);
 				}
+				//sendS2Sleave(channel,remoteIPAddress,std::to_string(remotePort));
 			}
 			else{
-				//new id:
+				std::cerr<<(unsigned long long)REQ_ID<< "is not one of the following:"<<std::endl;
+				for (unsigned int x=0; x<myRecentRequests.size(); x++)
+					std::cerr<<(unsigned long long)myRecentRequests[x].id<<std::endl;
+				//if (myRecentRequests.size()>2)
+				//	std::cin.get();//fix???
+				//add id to record:
 				
 				
 				struct requestIDInfo newID;
 				initBuffer(newID.id,8);
 				strcpy(newID.id,REQ_ID);
+				//newID.id = REQ_ID;
 				newID.timeStamp = time(NULL);
 				myRecentRequests.push_back(newID);
 				std::cerr << myIP <<":"<<myPort <<" "<<remoteIPAddress<<":"<<remotePort<< " recv S2S Say " <<userName<<" "<<channel<<" "<<'\"'<<message<<'\"'<<std::endl;					
+				//std::cin.get();
 				//check for users in channel*******
 				int position = findChannelInfoPositionInVector(mySubscribedChannels,channel);
 				bool noUsers = false;
@@ -511,36 +519,9 @@ server::server(char* domain, char* port){
 	addressSize = sizeof(myAddress);
 	bytesRecvd=0;
 	bindSocket();
-	char myRandomData[8];
-    size_t randomDataLen = 0;
-    int randomData = open("/dev/random", O_RDONLY);
-	if (randomData < 0)
-	{
-	    std::cerr << "error reading random data "<< std::endl;
-	    exit(EXIT_FAILURE);
-	}
-	else
-	{
-	
-	    while (randomDataLen < sizeof myRandomData)
-	    {
-	        ssize_t result = read(randomData, myRandomData + randomDataLen, (sizeof myRandomData) - randomDataLen);
-	        if (result < 0)
-	        {
-	            std::cerr << "error reading random data "<< std::endl;
-	    		exit(EXIT_FAILURE);
-	        }
-	        randomDataLen += result;
-	    }
-    //std::cerr << "random data (int):"<<std::endl;
-    
-    //	std::cerr<<(unsigned long long)myRandomData<<" ";
-    	srand((unsigned long long)myRandomData);
-    
-    //std::cerr<<std::endl;
-    //strcpy(my_request_s2s_say->req_ID,myRandomData);
-    	close(randomData);
-    }
+	randomPosition=0;
+	reSeed();
+	//srand ( time(NULL) );
 	//serve();
 }
 
@@ -629,7 +610,7 @@ void server::sendS2Sleave(std::string channel,std::string toIP, std::string toPo
 
 }
 void server::sendS2Ssay(std::string fromUser, std::string toChannel,std::string message,std::string senderIP, int senderPort,std::string fromIP, int fromPort, bool resend, char* buf){
-	//std::cerr<<"sends2ssay"<<std::endl;
+		std::cerr<<"sends2ssay"<<std::endl;
 		struct request_s2s_say* my_request_s2s_say= new request_s2s_say;
 		initBuffer(my_request_s2s_say->req_username, USERNAME_MAX);
 		initBuffer(my_request_s2s_say->req_channel, CHANNEL_MAX);
@@ -639,22 +620,43 @@ void server::sendS2Ssay(std::string fromUser, std::string toChannel,std::string 
 		strcpy(my_request_s2s_say->req_channel,toChannel.c_str());
 		strcpy(my_request_s2s_say->req_username,fromUser.c_str());
 		strcpy(my_request_s2s_say->req_text,message.c_str());
-		
-	    char myRandomData[8];
+		//char myRandomData[8];
+	    //initBuffer(myRandomData,8);
+	    
+	    std::cerr<< "random data:"<<std::endl;
+	    std::string tempString;
 	    for (int v=0; v<8; v++){
-	    	myRandomData[v] = rand()%255;
+	    	unsigned int temp =   rand()%9999999;
+	    	tempString = std::to_string(temp);
+	    	std::cerr<< tempString<<" ";
+	    	//myRandomData[v] = (char)temp;
 	    }
+	    while (tempString.length()<7){
+	    	tempString = "0"+tempString;
+	    }
+	    std::cerr<< std::endl;
+	    std::cerr<< "0 converted ID: "<<tempString<<std::endl;
+	    /*std::cerr<< "random data:"<<std::endl;
+	    for (int v=0; v<8; v++){
+	    	std::cerr<< (int)myRandomData[v]<<" ";
+	    }
+	    std::cerr<< std::endl;*/
+	    //add to local records 
 
+	    struct requestIDInfo newID;
+		strcpy(newID.id,tempString.c_str());//myRandomData;
+		newID.timeStamp = time(NULL);
+		myRecentRequests.push_back(newID);
 	    
 	    
-	    strcpy(my_request_s2s_say->req_ID,myRandomData);
+	    strcpy(my_request_s2s_say->req_ID,tempString.c_str());
 		    
 		
 	    if (!resend){
 		    std::cerr<<myIP<<":"<<myPort<< " sending a NEW s2s say"<<std::endl;
 		    std::cerr<<"from "<<fromIP<<":"<<fromPort<<std::endl;
 		    std::cerr<<"sender "<<senderIP<<":"<<senderPort<<std::endl;
-		    std::cerr<<(unsigned long long)myRandomData<<std::endl;
+		    std::cerr<<tempString<<std::endl;
 		    //std::cin.get();
 		}
 		else
@@ -703,7 +705,7 @@ void server::handleSay(std::string fromIP, int fromPort, std::string channel, st
 
 			std::string userName=currentUsers[userSlot].myUserName;
 			std::cerr<<"sending mail to "<<userName<<std::endl;
-			std::cerr <<myIP<<":"<<myPort<<" "<< fromIP <<":"<< fromPort << " recv Request Say " <<userName<<" "<< std::endl;
+			//std::cerr <<myIP<<":"<<myPort<<" "<< fromIP <<":"<< fromPort << " recv Request Say " <<userName<<" "<< std::endl;
 			sendMessage(userName/*, userSlot*/, channel, message);
 		
 		currentUsers[userSlot].lastSeen = time (NULL);
@@ -720,7 +722,7 @@ void server::handleSay(std::string fromIP, int fromPort, std::string channel, st
 }
 
 void server::handleS2SSay(std::string user, std::string channel, std::string message, std::string fromUser,std::string senderIP, int senderPort, std::string fromIP, int fromPort,char* buf){
-	std::cerr <<" handles2sSay called from :"<<user<<std::endl;
+	std::cerr <<" handles2sSay called from "<<user<<std::endl;
 	//int userSlot = findUserInfoPositionInVector(currentUsers,user);
 	//if (userSlot>=0){//sending user found, proceed.
 	//		std::string userName=currentUsers[userSlot].myUserName;
@@ -750,7 +752,6 @@ int main (int argc, char *argv[]){
 	}
 	int count =5;//if >=5 parameters, start adding adjacent servers
 	server* myServer = new server(argv[1],argv[2]);
-	
 	while (argc>=count){
 		
 		struct serverInfo newNeighbor;
