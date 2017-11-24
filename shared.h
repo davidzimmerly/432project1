@@ -14,20 +14,20 @@
 //cis432 fall 2017 David Zimmerly
 
 const int loginSize = sizeof(struct request_login);//36;
-const int joinLeaveWhoSize = 36;
-const int sayRequestSize = 100;
-const int saySize = 132;
-const int logoutListKeepAliveSize = 4;
+const int joinLeaveWhoSize = sizeof(struct request_join);//36;
+const int sayRequestSize = sizeof(struct request_say);//100;
+const int saySize = sizeof(struct text_say);//132;
+const int logoutListKeepAliveSize = sizeof(struct request_logout);//4;
 const int maxConnections = 256;
 const int errorSize = 68;
 const int clientKeepAlive = 60;
 const int serverTimeout = 120;
 const int clientResponseWaitTime = 5;
-const int s2sJoinLeaveSize = 36;
-const int s2sSaySize = 140;
+const int s2sJoinLeaveSize = sizeof(struct request_s2s_join);//36;
+const int s2sSaySize = sizeof(struct request_s2s_say);//140;
 
 
-#define BUFFERLENGTH 16384
+#define BUFFERLENGTH 65536
 /* |||||||||||| helper functions and constants ||||||||||||||||||||||||||   */
 void initBuffer(char* buf,int size){ for (int x=0;x<size;x++){ buf[x]='\0'; } }
 struct userInfo
@@ -48,6 +48,7 @@ struct serverInfo
 struct requestIDInfo
 {
 	char id[8];
+	//unsigned long long id;
 	time_t timeStamp;
 };
 

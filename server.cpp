@@ -61,7 +61,7 @@ void server::purgeUsers(){
 	}
 }
 void server::sendMessage(std::string fromUser/*, int userPosition*/, std::string toChannel, std::string message){
-	std::cerr<<"sendMessage"<<std::endl;
+	//std::cerr<<"sendMessage"<<std::endl;
 	int channelSlot = findChannelInfoPositionInVector(mySubscribedChannels,toChannel);
 	if (channelSlot>-1){
 		//get list of users/ips/ports, create text say, send message
@@ -79,7 +79,7 @@ void server::sendMessage(std::string fromUser/*, int userPosition*/, std::string
 			remoteAddress.sin_family = AF_INET;
 			remoteAddress.sin_port = htons(listOfUsers[x].myPort);
 			remoteAddress.sin_addr.s_addr = inet_addr(listOfUsers[x].myIPAddress.c_str());\
-			std::cerr<< " sending mail to "<<listOfUsers[x].myUserName<<" at ip "<<listOfUsers[x].myIPAddress<< " on port "<< listOfUsers[x].myPort<<std::endl;
+			//std::cerr<< " sending mail to "<<listOfUsers[x].myUserName<<" at ip "<<listOfUsers[x].myIPAddress<< " on port "<< listOfUsers[x].myPort<<std::endl;
 			if (sendto(mySocket, (char*)my_text_say, saySize, 0, (struct sockaddr *)&remoteAddress, sizeof(struct sockaddr_in))==-1){
 				perror("server sending mail to multiple users");
 				exit(EXIT_FAILURE);
@@ -201,10 +201,10 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 			incoming_leave_request = (struct request_leave*)myBuffer;
 			std::string channelToLeave = std::string(incoming_leave_request->req_channel);
 			int userSlot = findUserSlot(remoteIPAddress,remotePort);
-			std::cerr <<" got leave request" <<std::endl;
- 			if (userSlot>=0){//user found, erase from inside channel list
+			if (userSlot>=0){//user found, erase from inside channel list
  				std::string userName = currentUsers[userSlot].myUserName;
- 				for (unsigned int x=0; x <currentUsers[userSlot].myChannels.size(); x++){
+ 				std::cerr << myIP <<":"<<myPort <<" "<<remoteIPAddress<<":"<<remotePort<< " recv Request leave " <<userName<<" "<<channelToLeave<<std::endl;
+				for (unsigned int x=0; x <currentUsers[userSlot].myChannels.size(); x++){
 					if (channelToLeave.compare(currentUsers[userSlot].myChannels[x]) == 0){
      					currentUsers[userSlot].myChannels.erase(currentUsers[userSlot].myChannels.begin() + x);
      					break;
@@ -588,13 +588,13 @@ void server::sendS2Ssay(std::string fromUser, std::string toChannel,std::string 
 	    for (int v=0; v<8; v++){
 	    	unsigned int temp =   rand()%9999999;
 	    	tempString = std::to_string(temp);
-	    	std::cerr<< tempString<<" ";
+	    	//std::cerr<< tempString<<" ";
 	    }
 	    while (tempString.length()<7){
 	    	tempString = "0"+tempString;
 	    }
-	    std::cerr<< std::endl;
-	    std::cerr<< "0 converted ID: "<<tempString<<std::endl;
+	    //std::cerr<< std::endl;
+	    //std::cerr<< "0 converted ID: "<<tempString<<std::endl;
 
 	    //add to local records 
 	    struct requestIDInfo newID;
