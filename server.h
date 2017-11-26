@@ -27,7 +27,7 @@ class server{
 		bool amSubscribed(std::string channel);
 		void sendS2Sjoin(std::string channel,std::string senderIP, std::string senderPort);
 		//almost same as above function, probably could combine
-		void sendS2Sleave(std::string channel,std::string senderIP, std::string senderPort);
+		void sendS2Sleave(std::string channel,std::string senderIP, std::string senderPort, bool close);
 		void sendS2Ssay(std::string fromUser, std::string toChannel,std::string message,std::string senderIP, int senderPort,std::string fromIP, int fromPort, bool resend,char* buf);
 		void handleSay(std::string fromIP, int fromPort, std::string channel, std::string message,char* buf);
 		void handleS2SSay(std::string user, std::string channel, std::string message, std::string fromUser,std::string fromIP1, int fromPort1,std::string fromIP2, int fromPort2, char* buf);

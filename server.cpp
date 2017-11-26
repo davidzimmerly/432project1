@@ -324,7 +324,7 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 			if (!amSubscribed(channelToJoin)){
 			//then subscribe to channel if not:
 
-				std::cerr << myIP <<":"<<myPort<< " s2s adding channel , sending s2s joins" << channelToJoin <<std::endl;
+				//std::cerr << myIP <<":"<<myPort<< " s2s adding channel , sending s2s joins" << channelToJoin <<std::endl;
  				struct channelInfo newChannel;
  				newChannel.myChannelName = channelToJoin;
  				mySubscribedChannels.push_back(newChannel);
@@ -381,12 +381,7 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 
 			if (checkID>-1){
 				//std::cerr<< "found duplicate id "<<REQ_ID<<std::endl;
-				time_t checkTime = time(NULL);	
-				double seconds = difftime(checkTime,myRecentRequests[checkID].timeStamp);
-				if (seconds>serverTimeout){
-					myRecentRequests.erase(myRecentRequests.begin()+checkID);
-				}
-				//sendS2Sleave(channel,remoteIPAddress,std::to_string(remotePort));*************this didn't go as expected, re examine at some point
+				sendS2Sleave(channel,remoteIPAddress,std::to_string(remotePort),false);//*************still have error here... hmm..
 			}
 			else{
 				//std::cerr<<REQ_ID<< "is not one of the following:"<<std::endl;
@@ -403,11 +398,11 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 				bool noUsers = false;
 				int  serverCount = 0;
 				if (position!=-1){//we are subscribed to channel at [position]
-					std::cerr << " we are subscribed to channel..." << std::endl;
+					//std::cerr << " we are subscribed to channel..." << std::endl;
 					int numUsers = mySubscribedChannels[position].myUsers.size();
 					if (numUsers >0){
 						 
-						std::cerr << "..sending the mail to our "<<numUsers<<" users..." << std::endl;
+						//std::cerr << "..sending the mail to our "<<numUsers<<" users..." << std::endl;
 						sendMessage(userName, channel, message);
 						
 					}
@@ -425,14 +420,14 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 					}
 
 					if (noUsers && serverCount==0){//then check for other servers in list subscribed to channel (besides sender)
-						sendS2Sleave(channel,remoteIPAddress,std::to_string(remotePort));//if both then send s2s leave as response
+						sendS2Sleave(channel,remoteIPAddress,std::to_string(remotePort),true);//if both then send s2s leave as response
 					}
 							
 
 				
 				}
 				else{
-					std::cerr <<"..not subscribed to channel, ignoring."<<std::endl;
+					//std::cerr <<"..not subscribed to channel, ignoring."<<std::endl;
 				}
 
 			
@@ -559,7 +554,7 @@ void server::sendS2Sjoin(std::string channel,std::string senderIP, std::string s
 	delete(my_request_s2s_join);
 
 }
-void server::sendS2Sleave(std::string channel,std::string toIP, std::string toPort){//, char* buffer, bool useBuffer){
+void server::sendS2Sleave(std::string channel,std::string toIP, std::string toPort, bool close){//, char* buffer, bool useBuffer){
 	struct request_s2s_leave* my_request_s2s_leave= new request_s2s_leave;
 	initBuffer(my_request_s2s_leave->req_channel, CHANNEL_MAX);
 	my_request_s2s_leave->req_type = REQ_S2S_LEAVE;
@@ -578,10 +573,12 @@ void server::sendS2Sleave(std::string channel,std::string toIP, std::string toPo
 		perror("server sending s2s leave request to multiple servers");
 		exit(EXIT_FAILURE);
 	}
-	int position = findChannelInfoPositionInVector(mySubscribedChannels,channel);
-	if (position!=-1){
-		mySubscribedChannels.erase(mySubscribedChannels.begin()+position);
-		
+	if (close){
+		int position = findChannelInfoPositionInVector(mySubscribedChannels,channel);
+		if (position!=-1){
+			mySubscribedChannels.erase(mySubscribedChannels.begin()+position);
+			
+		}
 	}
 	delete(my_request_s2s_leave);
 
@@ -701,7 +698,12 @@ int server::findServerInfoPositionInVector(std::string ip, int port){
 int server::findID(std::string input){
 	int found = -1;
 	for (unsigned int x=0; x<myRecentRequests.size(); x++) {
-		if (strcmp(input.c_str(),myRecentRequests[x].id)==0){
+		time_t checkTime = time(NULL);	
+		double seconds = difftime(checkTime,myRecentRequests[x].timeStamp);
+		if (seconds>serverTimeout){
+			myRecentRequests.erase(myRecentRequests.begin()+x);
+		}
+		else if (strcmp(input.c_str(),myRecentRequests[x].id)==0){
 			found=x;
 			break;
 		}
@@ -751,7 +753,7 @@ int main (int argc, char *argv[]){
 		myServer->serverList.push_back(newNeighbor);
 		count +=2; 
 	}
-	std::cerr <<"started: port: "<<myServer->myPort<< " neighbors: "<<(argc-3)/2<<std::endl;
+	//std::cerr <<"started: port: "<<myServer->myPort<< " neighbors: "<<(argc-3)/2<<std::endl;
 	myServer->serve();
 	delete(myServer);
 	return 0;
