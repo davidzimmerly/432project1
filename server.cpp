@@ -324,20 +324,26 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 			if (!amSubscribed(channelToJoin)){
 			//then subscribe to channel if not:
 
-				//std::cerr << myIP <<":"<<myPort<< " s2s adding channel " << channelToJoin <<std::endl;
+				std::cerr << myIP <<":"<<myPort<< " s2s adding channel , sending s2s joins" << channelToJoin <<std::endl;
  				struct channelInfo newChannel;
  				newChannel.myChannelName = channelToJoin;
  				mySubscribedChannels.push_back(newChannel);
-				int serverPosition = findServerInfoPositionInVector(remoteIPAddress,remotePort);
-				if (serverPosition>-1){
-					serverList[serverPosition].myChannels.push_back(channelToJoin);//set calling neighbor to subscribed when recv join request
-
-
-				}	
 				//for each neighbor, send join request
 			
 				sendS2Sjoin(channelToJoin,remoteIPAddress,std::to_string(remotePort));
 			}//else amSubscribed - do nothing
+			else{
+				//std::cerr <<" already subscribed, ignoring s2s say (but adding"
+			}
+
+			int serverPosition = findServerInfoPositionInVector(remoteIPAddress,remotePort);
+			if (serverPosition>-1){
+				if (!(findStringPositionInVector(serverList[serverPosition].myChannels,channelToJoin)>-1))//don't double join
+					serverList[serverPosition].myChannels.push_back(channelToJoin);//set calling neighbor to subscribed when recv join request
+
+
+			}	
+				
 
 		}
 		else if (identifier == REQ_S2S_LEAVE && bytesRecvd==s2sJoinLeaveSize){
@@ -397,16 +403,18 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 				bool noUsers = false;
 				int  serverCount = 0;
 				if (position!=-1){//we are subscribed to channel at [position]
-
+					std::cerr << " we are subscribed to channel..." << std::endl;
 					int numUsers = mySubscribedChannels[position].myUsers.size();
 					if (numUsers >0){
 						 
-	
+						std::cerr << "..sending the mail to our "<<numUsers<<" users..." << std::endl;
 						sendMessage(userName, channel, message);
-						sendS2Ssay(userName,channel,message,remoteIPAddress,remotePort,myIP,myPortInt,true,myBuffer);	
+						
 					}
 					else 
 						noUsers=true;
+
+					sendS2Ssay(userName,channel,message,remoteIPAddress,remotePort,myIP,myPortInt,true,myBuffer);	
 
 					for (std::vector<serverInfo>::iterator iter = serverList.begin(); iter != serverList.end(); ++iter) {
 						if (!(((*iter).myIPAddress==remoteIPAddress)&&(*iter).myPort==remotePort)){		//don't send right back to sender
@@ -423,6 +431,10 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 
 				
 				}
+				else{
+					std::cerr <<"..not subscribed to channel, ignoring."<<std::endl;
+				}
+
 			
 			
 			} 
@@ -739,6 +751,7 @@ int main (int argc, char *argv[]){
 		myServer->serverList.push_back(newNeighbor);
 		count +=2; 
 	}
+	std::cerr <<"started: port: "<<myServer->myPort<< " neighbors: "<<(argc-3)/2<<std::endl;
 	myServer->serve();
 	delete(myServer);
 	return 0;
