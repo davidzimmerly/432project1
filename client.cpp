@@ -9,7 +9,7 @@ void client::keepAlive(){
 void client::checkKeepAlive(time_t &keepAliveTime){
 	time_t checkTime = time(NULL);	
 	double seconds = difftime(checkTime,keepAliveTime);//note:order matters here
-	if (seconds>=clientKeepAlive){
+	if (seconds>=keepAliveTimeout-clientResponseWaitTime){
 		keepAlive();
 		keepAliveTime = time(NULL);	
 	}
@@ -157,6 +157,9 @@ void client::join(std::string channel){
 	}
 }
 void client::leave(std::string channel){
+	for (unsigned int x=0; x<myChannels.size(); x++){
+		std::cerr << "my subscribed channel: "<< myChannels[x]<<std::endl;
+	}
 	truncate(channel,CHANNEL_MAX-1);
 	int position = findStringPositionInVector(myChannels,channel);
 	if (position>-1){
@@ -167,17 +170,19 @@ void client::leave(std::string channel){
 		send((char*)my_request_leave,joinLeaveWhoSize,"sendto request to join from client");
 		delete(my_request_leave);
 		myChannels.erase(myChannels.begin()+position);
-		if (myActiveChannel==channel && channel!="Common" && findStringPositionInVector(myChannels,"Common")>=0){
-			myActiveChannel="Common";//default to common, if still subscribed
-		}
-		else{
-			myActiveChannel="";
+		if (myActiveChannel==channel){// && channel!="Common" && findStringPositionInVector(myChannels,"Common")>=0){
+			myActiveChannel="";//default to common, if still subscribed
 		}
 
+		
 	}
 	else{
 		std::cerr << "*error, you have not joined channel "<<channel << std::endl;		
 	}
+	for (unsigned int x=0; x<myChannels.size(); x++){
+		std::cerr << "my subscribed channel: "<< myChannels[x]<<std::endl;
+	}
+	
 }	
 void client::who(std::string channel){
 	truncate(channel,CHANNEL_MAX-1);
@@ -276,7 +281,7 @@ int main (int argc, char *argv[]){
 	}
 	struct timeval* timeOut=new timeval;
 	time_t keepAliveTime = time (NULL);
-	timeOut->tv_sec = clientKeepAlive/12;
+	timeOut->tv_sec = keepAliveTimeout/12;
 	timeOut->tv_usec = 0;
 		
 	while (running){

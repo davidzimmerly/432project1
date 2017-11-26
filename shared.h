@@ -20,7 +20,7 @@ const int saySize = sizeof(struct text_say);//132;
 const int logoutListKeepAliveSize = sizeof(struct request_logout);//4;
 const int maxConnections = 256;
 const int errorSize = 68;
-const int clientKeepAlive = 60;
+const int keepAliveTimeout = 60;
 const int serverTimeout = 120;
 const int clientResponseWaitTime = 5;
 const int s2sJoinLeaveSize = sizeof(struct request_s2s_join);//36;
@@ -44,6 +44,7 @@ struct serverInfo
 	std::string myIPAddress;
 	int myPort;
 	std::vector<std::string> myChannels;
+	std::vector<time_t> myTimeStamps;
 };
 struct requestIDInfo
 {

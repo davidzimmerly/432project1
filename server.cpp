@@ -1,5 +1,5 @@
 #include "server.h"
-//cis432 fall 2017 David Zimmerly
+//cis432 fall 2017 David Zimmerly project 2
 int server::findUserSlot(std::string remoteIPAddress,int remotePort){
 	int userSlot=-1;
 	int size=currentUsers.size();
@@ -59,6 +59,22 @@ void server::purgeUsers(){
 	     	}					
 		}
 	}
+	for (unsigned int x=0; x<serverList.size(); x++){//purge channels of adj servers if have not resent join message
+		//std::cerr << "checking user "<<x<< std::endl;
+		std::vector<int> removeThese;
+		for (unsigned int y=0; y<serverList[x].myChannels.size(); y++){
+			double seconds = difftime(timeNow,serverList[x].myTimeStamps[y]);
+			if (seconds>=serverTimeout){
+				removeThese.push_back(y);
+			}
+		
+		}
+		for (unsigned int z=removeThese.size()-1; z<=0; z--){
+			serverList[x].myChannels.erase(serverList[x].myChannels.begin()+removeThese[z]);
+			serverList[x].myTimeStamps.erase(serverList[x].myTimeStamps.begin()+removeThese[z]);
+
+		}
+	}
 }
 void server::sendMessage(std::string fromUser/*, int userPosition*/, std::string toChannel, std::string message){
 	//std::cerr<<"sendMessage"<<std::endl;
@@ -74,6 +90,7 @@ void server::sendMessage(std::string fromUser/*, int userPosition*/, std::string
 		strcpy(my_text_say->txt_channel,toChannel.c_str());
 		strcpy(my_text_say->txt_text,message.c_str());
 		strcpy(my_text_say->txt_username,fromUser.c_str());
+		bool sent=false;
 		for(unsigned int x =0 ; x < listOfUsers.size(); x++){
 			struct sockaddr_in remoteAddress;
 			remoteAddress.sin_family = AF_INET;
@@ -84,12 +101,17 @@ void server::sendMessage(std::string fromUser/*, int userPosition*/, std::string
 				perror("server sending mail to multiple users");
 				exit(EXIT_FAILURE);
 			}
+			else
+				sent=true;
 		}
-		//send s2s say
-		//only if server in channel			
-		
 		delete(my_text_say);
+		if (!sent)
+			std::cerr << "think list of users is empty trying to sendmail"<< std::endl;	
 	}
+	else{
+		std::cerr << "channel not found on server trying to sendmail"<< std::endl;
+	}
+
 }
 void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAddress, int remotePort){
 	if (bytesRecvd>=BUFFERLENGTH){
@@ -204,20 +226,52 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 			if (userSlot>=0){//user found, erase from inside channel list
  				std::string userName = currentUsers[userSlot].myUserName;
  				std::cerr << myIP <<":"<<myPort <<" "<<remoteIPAddress<<":"<<remotePort<< " recv Request leave " <<userName<<" "<<channelToLeave<<std::endl;
+				//remove from currentUsers/mychannels
 				for (unsigned int x=0; x <currentUsers[userSlot].myChannels.size(); x++){
 					if (channelToLeave.compare(currentUsers[userSlot].myChannels[x]) == 0){
      					currentUsers[userSlot].myChannels.erase(currentUsers[userSlot].myChannels.begin() + x);
      					break;
      				}
      			}
-     			for (unsigned int y=0; y<currentUsers[userSlot].myChannels.size(); y++){
+     			//remove from mySubscribedchannels/myusers 
+     			int channelPosition = findChannelInfoPositionInVector(mySubscribedChannels,channelToLeave);
+     			if (channelPosition>-1){
+     				int userPosition = findUserInfoPositionInVector(mySubscribedChannels[channelPosition].myUsers,userName);
+     				if (userPosition>-1){
+     					mySubscribedChannels[channelPosition].myUsers.erase(mySubscribedChannels[channelPosition].myUsers.begin()+userPosition);
+
+     				}
+     				else{
+     					std::cerr << "can't find username to remove from channellist's users" <<std::endl;
+     					exit(EXIT_FAILURE);	
+     				}
+
+     			}
+     			else{
+     				std::cerr << "can't find channel in channellist to remove user from" <<std::endl;
+     				exit(EXIT_FAILURE);
+     			}
+
+
+/*     			for (unsigned int x=0; x <mySubscribedChannels.size(); x++){
+					if (){
+     					currentUsers[userSlot].myChannels.erase(currentUsers[userSlot].myChannels.begin() + x);
+     					break;
+     				}
+     			}
+     			
+*/
+     			leave(userName,channelToLeave);
+
+     			/*for (unsigned int y=0; y<currentUsers[userSlot].myChannels.size(); y++){
 					server::leave(userName,currentUsers[userSlot].myChannels[y]);
-				}
+				}  //think maybe code for logout if useful later need to check**********
 				//log out of server subscribed channels:
 				for (unsigned int y=0; y<mySubscribedChannels.size(); y++){
-					server::leave(currentUsers[userSlot].myUserName,mySubscribedChannels[y].myChannelName);
-				}
-				currentUsers[userSlot].myActiveChannel = "";
+					leave(currentUsers[userSlot].myUserName,mySubscribedChannels[y].myChannelName);
+				}*/
+				if (currentUsers[userSlot].myActiveChannel==channelToLeave)
+					currentUsers[userSlot].myActiveChannel = "";
  				currentUsers[userSlot].lastSeen = time (NULL);	
  			}
  			else
@@ -338,9 +392,10 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 
 			int serverPosition = findServerInfoPositionInVector(remoteIPAddress,remotePort);
 			if (serverPosition>-1){
-				if (!(findStringPositionInVector(serverList[serverPosition].myChannels,channelToJoin)>-1))//don't double join
+				if (!(findStringPositionInVector(serverList[serverPosition].myChannels,channelToJoin)>-1)){//don't double join
 					serverList[serverPosition].myChannels.push_back(channelToJoin);//set calling neighbor to subscribed when recv join request
-
+					serverList[serverPosition].myTimeStamps.push_back(time(NULL));
+				}
 
 			}	
 				
@@ -438,13 +493,15 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 	}
 }
 void server::leave(std::string userName, std::string channelToLeave){
+	std::cerr << "leave called"<<std::endl;
 	int mastermySubscribedChannelsPosition =-1;
 	int mySubscribedChannelsNamePosition =-1;
 	for (unsigned int x=0; x <mySubscribedChannels.size(); x++){
 		if (channelToLeave.compare(mySubscribedChannels[x].myChannelName) == 0){
 				mastermySubscribedChannelsPosition=x;
 				break;
-			}
+		}
+		std::cerr << "I am subscribed to "<<mySubscribedChannels[x].myChannelName<<std::endl;
 	}//this ensures the channel to leave is valid in our servers master list
 	if (mastermySubscribedChannelsPosition>-1){
 		for (unsigned int x=0; x <mySubscribedChannels[mastermySubscribedChannelsPosition].myUsers.size(); x++){
@@ -456,23 +513,30 @@ void server::leave(std::string userName, std::string channelToLeave){
 	}//this ensures the username is subscribed to the channel to leave
 	if (mySubscribedChannelsNamePosition>-1){
 		mySubscribedChannels[mastermySubscribedChannelsPosition].myUsers.erase(mySubscribedChannels[mastermySubscribedChannelsPosition].myUsers.begin()+mySubscribedChannelsNamePosition);
-		
+		std::cerr << "removing " <<userName << "from" << channelToLeave<<std::endl;
 	}//this removes user from the channel and leaves remove channel if empty to s2sleave
 }
 //bool 
-void server::checkPurge(time_t &purgeTime){
+void server::checkPurge(time_t &purgeTime,time_t &keepAliveTime){
 	time_t checkTime = time(NULL);	
 	double seconds = difftime(checkTime,purgeTime);
 	if (seconds>=serverTimeout){
 		purgeUsers();
+		//purgeServers();
 		purgeTime = time(NULL);	
 		//return false;
+	}
+	seconds = difftime(checkTime,keepAliveTime);
+	if (seconds>=keepAliveTimeout){
+		renewJoins();
+		keepAliveTime = time(NULL);
 	}
 	//return true;			
 }
 void server::serve(){
 	setTimeout(mySocket,serverTimeout/25);
 	time_t purgeTime = time (NULL);
+	time_t keepAliveTimeout = time (NULL);
 	//bool valgrind = true;
 	while(true/*valgrind*/) {
 		int bytesRecvd = 0;
@@ -483,7 +547,7 @@ void server::serve(){
 		bytesRecvd = recvfrom(mySocket, myBuffer, BUFFERLENGTH, 0, (struct sockaddr *)&remoteAddress, &addressSize);
 		if (bytesRecvd<=0){//recvfrom timeout : never going to happen unless all users stop pinging in
 			/*valgrind = */
-			checkPurge(purgeTime);
+			checkPurge(purgeTime,keepAliveTimeout);
 		}
 		else if (bytesRecvd>0){
 			//printf("received %d bytes\n", bytesRecvd);
@@ -492,7 +556,7 @@ void server::serve(){
 			short unsigned int remotePort =ntohs(remoteAddress.sin_port);
 			//std::cerr << remoteIPAddress << ":" <<remotePort<<std::endl;
 			handleRequest(myBuffer,bytesRecvd,remoteIPAddress,remotePort);//,inet_ntoa(remoteAddress.sin_addr),htons(remoteAddress.sin_port));	
-			checkPurge(purgeTime);
+			checkPurge(purgeTime,keepAliveTimeout);
 		}		
 	}
 }
@@ -531,29 +595,55 @@ bool server::amSubscribed(std::string channel){
 		return false;
 }
 void server::sendS2Sjoin(std::string channel,std::string senderIP, std::string senderPort){//, char* buffer, bool useBuffer){
-	struct request_s2s_join* my_request_s2s_join= new request_s2s_join;
-	initBuffer(my_request_s2s_join->req_channel, CHANNEL_MAX);
-	my_request_s2s_join->req_type = REQ_S2S_JOIN;
-	strcpy(my_request_s2s_join->req_channel,channel.c_str());
 	for (std::vector<serverInfo>::iterator iter = serverList.begin(); iter != serverList.end(); ++iter) {
 		if (!(((*iter).myIPAddress==senderIP)&&(*iter).myPort==std::atoi(senderPort.c_str()))){
-			struct sockaddr_in remoteAddress;
+/*			struct sockaddr_in remoteAddress;
 			remoteAddress.sin_family = AF_INET;
 			remoteAddress.sin_port = htons((*iter).myPort);
 			remoteAddress.sin_addr.s_addr = inet_addr((*iter).myIPAddress.c_str());
 			
-			std::cerr << myIP <<":"<<myPort <<" "<<(*iter).myIPAddress<<":"<<(*iter).myPort<< " send S2S Join " <<channel<<std::endl;					
+			std::cerr << myIP <<":"<<myPort <<" "<<(*iter).myIPAddress<<":"<<(*iter).myPort<< " send S2S Join " <<channel<<std::endl;					*/
+			int position = findStringPositionInVector((*iter).myChannels,channel);
+			if (position==-1){
+				(*iter).myChannels.push_back(channel);
+				(*iter).myTimeStamps.push_back(time(NULL));
+			}
+			else
+				(*iter).myTimeStamps[position]=time(NULL);	
 
-			(*iter).myChannels.push_back(channel);
-			if (sendto(mySocket, (char*)my_request_s2s_join, s2sJoinLeaveSize, 0, (struct sockaddr *)&remoteAddress, sizeof(struct sockaddr_in))==-1){
+			/*if (sendto(mySocket, (char*)my_request_s2s_join, s2sJoinLeaveSize, 0, (struct sockaddr *)&remoteAddress, sizeof(struct sockaddr_in))==-1){
 				perror("server sending s2s join request to multiple servers");
 				exit(EXIT_FAILURE);
-			}
+			}*/
+			sendS2SjoinSingle((*iter).myIPAddress,(*iter).myPort,channel);
 		}
 	}
-	delete(my_request_s2s_join);
+	
 
 }
+void server::sendS2SjoinSingle(std::string toIP, int toPort, std::string channel){
+	struct request_s2s_join* my_request_s2s_join= new request_s2s_join;
+	initBuffer(my_request_s2s_join->req_channel, CHANNEL_MAX);
+	my_request_s2s_join->req_type = REQ_S2S_JOIN;
+	strcpy(my_request_s2s_join->req_channel,channel.c_str());
+	
+	struct sockaddr_in remoteAddress;
+	remoteAddress.sin_family = AF_INET;
+	remoteAddress.sin_port = htons(toPort);
+	remoteAddress.sin_addr.s_addr = inet_addr(toIP.c_str());
+	
+	std::cerr << myIP <<":"<<myPort <<" "<<toIP<<":"<<toPort<< " send S2S Join " <<channel<<std::endl;					
+
+	
+	if (sendto(mySocket, my_request_s2s_join, s2sJoinLeaveSize, 0, (struct sockaddr *)&remoteAddress, sizeof(struct sockaddr_in))==-1){
+		perror("server sending s2s join request to multiple servers");
+		exit(EXIT_FAILURE);
+	}
+	delete(my_request_s2s_join);
+	
+}
+
+
 void server::sendS2Sleave(std::string channel,std::string toIP, std::string toPort, bool close){//, char* buffer, bool useBuffer){
 	struct request_s2s_leave* my_request_s2s_leave= new request_s2s_leave;
 	initBuffer(my_request_s2s_leave->req_channel, CHANNEL_MAX);
@@ -584,48 +674,33 @@ void server::sendS2Sleave(std::string channel,std::string toIP, std::string toPo
 
 }
 void server::sendS2Ssay(std::string fromUser, std::string toChannel,std::string message,std::string senderIP, int senderPort,std::string fromIP, int fromPort, bool resend, char* buf){
-		struct request_s2s_say* my_request_s2s_say= new request_s2s_say;
-		initBuffer(my_request_s2s_say->req_username, USERNAME_MAX);
-		initBuffer(my_request_s2s_say->req_channel, CHANNEL_MAX);
-		initBuffer(my_request_s2s_say->req_text, SAY_MAX);
-		initBuffer(my_request_s2s_say->req_ID, ID_MAX);
-		my_request_s2s_say->req_type = REQ_S2S_SAY;
-		strcpy(my_request_s2s_say->req_channel,toChannel.c_str());
-		strcpy(my_request_s2s_say->req_username,fromUser.c_str());
-		strcpy(my_request_s2s_say->req_text,message.c_str());
-	    std::string tempString;
-	    for (int v=0; v<8; v++){
-	    	unsigned int temp =   rand()%9999999;
-	    	tempString = std::to_string(temp);
-	    	//std::cerr<< tempString<<" ";
-	    }
-	    while (tempString.length()<7){
-	    	tempString = "0"+tempString;
-	    }
-	    //std::cerr<< std::endl;
-	    //std::cerr<< "0 converted ID: "<<tempString<<std::endl;
+	struct request_s2s_say* my_request_s2s_say= new request_s2s_say;
+	initBuffer(my_request_s2s_say->req_username, USERNAME_MAX);
+	initBuffer(my_request_s2s_say->req_channel, CHANNEL_MAX);
+	initBuffer(my_request_s2s_say->req_text, SAY_MAX);
+	initBuffer(my_request_s2s_say->req_ID, ID_MAX);
+	my_request_s2s_say->req_type = REQ_S2S_SAY;
+	strcpy(my_request_s2s_say->req_channel,toChannel.c_str());
+	strcpy(my_request_s2s_say->req_username,fromUser.c_str());
+	strcpy(my_request_s2s_say->req_text,message.c_str());
+    std::string tempString;
+    for (int v=0; v<8; v++){
+    	unsigned int temp =   rand()%9999999;
+    	tempString = std::to_string(temp);
+    }
+    while (tempString.length()<7){
+    	tempString = "0"+tempString;
+    }
+    //std::cerr<< "0 converted ID: "<<tempString<<std::endl;
 
-	    //add to local records 
-	    struct requestIDInfo newID;
-		strcpy(newID.id,tempString.c_str());//myRandomData;
-		newID.timeStamp = time(NULL);
-		myRecentRequests.push_back(newID);
-	    
-	    
-	    strcpy(my_request_s2s_say->req_ID,tempString.c_str());
-		    
-		
-/*	    if (!resend){
-		    std::cerr<<myIP<<":"<<myPort<< " sending a NEW s2s say"<<std::endl;
-		    std::cerr<<"from "<<fromIP<<":"<<fromPort<<std::endl;
-		    std::cerr<<"sender "<<senderIP<<":"<<senderPort<<std::endl;
-		    std::cerr<<tempString<<std::endl;
-		    //std::cin.get();
-		}
-		else
-		{
-			std::cerr<<"resending s2s packet"<<std::endl;
-		}*/
+    //add to local records 
+    struct requestIDInfo newID;
+	strcpy(newID.id,tempString.c_str());//myRandomData;
+	newID.timeStamp = time(NULL);
+	myRecentRequests.push_back(newID);
+    
+    
+    strcpy(my_request_s2s_say->req_ID,tempString.c_str());
 
 	for (std::vector<serverInfo>::iterator iter = serverList.begin(); iter != serverList.end(); ++iter) {
 		if ( !(((*iter).myIPAddress==senderIP)&&(*iter).myPort==senderPort) && !(((*iter).myIPAddress==fromIP)&&(*iter).myPort==fromPort)) {		//don't send right back to sender
@@ -662,13 +737,31 @@ void server::sendS2Ssay(std::string fromUser, std::string toChannel,std::string 
 	delete(my_request_s2s_say);
 	//std::cerr << "done with send s2s say" <<std::endl;
 }
+void server::renewJoins(){//runs once per minute
+	for (unsigned int x=0; x<mySubscribedChannels.size(); x++){//for each channel x in my subscribed channels
+		std::string channel = mySubscribedChannels[x].myChannelName;
+		for (unsigned int y=0; y<serverList.size(); y++){//for each adjacent server
+			//if server is subscribed to channel x, renew join
+			int position =findStringPositionInVector(serverList[y].myChannels,channel);
+			if (position>-1){
+				serverList[y].myTimeStamps[position] = time(NULL);
+
+				sendS2SjoinSingle(serverList[y].myIPAddress,serverList[y].myPort,channel);
+			}
+
+
+
+		}
+			
+	}
+}
 void server::handleSay(std::string fromIP, int fromPort, std::string channel, std::string message,char* buf){
-	//std::cerr<<"starting handleSay"<<std::endl;
+	std::cerr<<"starting handleSay"<<std::endl;
 	int userSlot = findUserSlot(fromIP,fromPort);
 	if (userSlot>=0){//sending user found, proceed.
 
 			std::string userName=currentUsers[userSlot].myUserName;
-			//std::cerr<<"sending mail to "<<userName<<std::endl;
+			std::cerr<<"sending mail from "<<userName<<std::endl;
 			//std::cerr <<myIP<<":"<<myPort<<" "<< fromIP <<":"<< fromPort << " recv Request Say " <<userName<<" "<< std::endl;
 			sendMessage(userName/*, userSlot*/, channel, message);
 		
@@ -680,11 +773,9 @@ void server::handleSay(std::string fromIP, int fromPort, std::string channel, st
 			sendS2Ssay(currentUsers[userSlot].myUserName,channel,message,myIP,myPortInt,fromIP,fromPort,true,buf);	
 	}
 	else{
-		//std::cerr<<"found no user at ip/port "<< fromIP<<"/"<<fromPort<< " to send from "<<std::endl;
+		std::cerr<<"found no user at ip/port "<< fromIP<<"/"<<fromPort<< " to send from "<<std::endl;
 	}
-
 }
-
 int server::findServerInfoPositionInVector(std::string ip, int port){
 	int found = -1;
 	for (unsigned int x=0; x<serverList.size(); x++) {
@@ -738,13 +829,12 @@ void server::seedRandom(){
 		close(randomData);
 	}
 }
-
 int main (int argc, char *argv[]){
 	if (argc<3 || argc%2==0){
-		std::cerr/*argv[1]*/<<"Usage: ./server domain_name port_num neighbor_server_1_IP neighbor_server_1_Port... neighbor_serverb_X_IP neighbor_serverb_X_Port"<<std::endl;
+		std::cerr<<"Usage: ./server domain_name port_num neighbor_server_1_IP neighbor_server_1_Port... neighbor_serverb_X_IP neighbor_serverb_X_Port"<<std::endl;
 		exit(EXIT_FAILURE);
 	}
-	int count =5;//if >=5 (not even) parameters, start adding adjacent servers
+	int count = 5;//if >=5 (not even) parameters, start adding adjacent servers
 	server* myServer = new server(argv[1],argv[2]);
 	while (argc>=count){
 		struct serverInfo newNeighbor;
