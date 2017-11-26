@@ -18,7 +18,7 @@ class server{
 		std::vector<userInfo> currentUsers;
 		int findUserSlot(std::string remoteIPAddress,int remotePort);
 		void sendError(std::string theError, std::string ip, int port);
-		void purgeUsers();
+		void purge();
 		void checkPurge(time_t &purgeTime,time_t &keepAliveTime);
 		void sendMessage(std::string fromUser, /*int userPosition,*/ std::string toChannel, std::string message);
 		void handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAddress, int remotePort);

@@ -157,9 +157,6 @@ void client::join(std::string channel){
 	}
 }
 void client::leave(std::string channel){
-	for (unsigned int x=0; x<myChannels.size(); x++){
-		std::cerr << "my subscribed channel: "<< myChannels[x]<<std::endl;
-	}
 	truncate(channel,CHANNEL_MAX-1);
 	int position = findStringPositionInVector(myChannels,channel);
 	if (position>-1){
@@ -178,9 +175,6 @@ void client::leave(std::string channel){
 	}
 	else{
 		std::cerr << "*error, you have not joined channel "<<channel << std::endl;		
-	}
-	for (unsigned int x=0; x<myChannels.size(); x++){
-		std::cerr << "my subscribed channel: "<< myChannels[x]<<std::endl;
 	}
 	
 }	
