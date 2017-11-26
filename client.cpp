@@ -81,41 +81,62 @@ void client::handleServerResponse(char* replyBuffer,int bytesRecvd){
 	}
 }
 void client::login(){
-	truncate(myUserName,CHANNEL_MAX-1);
-	struct request_login* my_request_login= new request_login;
-	my_request_login->req_type = REQ_LOGIN;
-	initBuffer((char*)my_request_login->req_username, USERNAME_MAX);
-	strcpy(my_request_login->req_username,myUserName.c_str());
-	send((char*)my_request_login,loginSize,"sendto login");
-	delete(my_request_login);
+	try{
+		truncate(myUserName,CHANNEL_MAX-1);
+		struct request_login* my_request_login= new request_login;
+		my_request_login->req_type = REQ_LOGIN;
+		initBuffer((char*)my_request_login->req_username, USERNAME_MAX);
+		strcpy(my_request_login->req_username,myUserName.c_str());
+		send((char*)my_request_login,loginSize,"sendto login");
+		delete(my_request_login);
+	}		
+	catch (const std::exception& e) {
+		std::cerr <<"exception caught client logging in "<<std::endl;
+	}
+
 }
 void client::logout(){
-	struct request_logout* my_request_logout= new request_logout;
-	my_request_logout->req_type = REQ_LOGOUT;
-	send((char*)my_request_logout,logoutListKeepAliveSize,"sendto logout");
-	close(mySocket);
-	delete(my_request_logout);
+	try{
+		struct request_logout* my_request_logout= new request_logout;
+		my_request_logout->req_type = REQ_LOGOUT;
+		send((char*)my_request_logout,logoutListKeepAliveSize,"sendto logout");
+		close(mySocket);
+		delete(my_request_logout);
+	}		
+	catch (const std::exception& e) {
+		std::cerr <<"exception caught client logging out "<<std::endl;
+	}
 }
 void client::requestChannels(){
-	char replyBuffer[BUFFERLENGTH];
-	struct request_list* my_request_list= new request_list;
-	my_request_list->req_type = REQ_LIST;
-	send((char*)my_request_list,logoutListKeepAliveSize,"client requesting channels");
-	int bytesRecvd = getServerResponse(false,replyBuffer);
-	handleServerResponse(replyBuffer,bytesRecvd);
-	delete(my_request_list);
+	try{
+		char replyBuffer[BUFFERLENGTH];
+		struct request_list* my_request_list= new request_list;
+		my_request_list->req_type = REQ_LIST;
+		send((char*)my_request_list,logoutListKeepAliveSize,"client requesting channels");
+		int bytesRecvd = getServerResponse(false,replyBuffer);
+		handleServerResponse(replyBuffer,bytesRecvd);
+		delete(my_request_list);
+	}		
+	catch (const std::exception& e) {
+		std::cerr <<"exception caught client requesting channels "<<std::endl;
+	}
 }
 void client::say(std::string textfield){
 	if (myActiveChannel!=""){
-		truncate(textfield,SAY_MAX-1);
-		struct request_say* my_request_say= new request_say;
-		my_request_say->req_type = REQ_SAY;
-		initBuffer(my_request_say->req_channel, CHANNEL_MAX);
-		initBuffer(my_request_say->req_text, SAY_MAX);
-		strcpy(my_request_say->req_channel,myActiveChannel.c_str());
-		strcpy(my_request_say->req_text,textfield.c_str());
-		send((char*)my_request_say,sayRequestSize,"sending a message to channel  (from client)");
-		delete(my_request_say);
+		try{
+			truncate(textfield,SAY_MAX-1);
+			struct request_say* my_request_say= new request_say;
+			my_request_say->req_type = REQ_SAY;
+			initBuffer(my_request_say->req_channel, CHANNEL_MAX);
+			initBuffer(my_request_say->req_text, SAY_MAX);
+			strcpy(my_request_say->req_channel,myActiveChannel.c_str());
+			strcpy(my_request_say->req_text,textfield.c_str());
+			send((char*)my_request_say,sayRequestSize,"sending a message to channel  (from client)");
+			delete(my_request_say);
+		}		
+		catch (const std::exception& e) {
+			std::cerr <<"exception caught client say "<<std::endl;
+		}
 	}
 	else{
 		std::cerr<<"*error you are not in a channel"<<std::endl;
@@ -144,32 +165,43 @@ void client::join(std::string channel){
 	if (findStringPositionInVector(myChannels,channel)>-1)
 		std::cerr << "*error, you have already joined channel "<<channel << std::endl;
 	else{
-		struct request_join* my_request_join= new request_join;
-		my_request_join->req_type = REQ_JOIN;
-		initBuffer(my_request_join->req_channel, CHANNEL_MAX);
-		
-		strcpy(my_request_join->req_channel,channel.c_str());
-		myActiveChannel = channel;
-		if (findStringPositionInVector(myChannels,channel)==-1)
-			myChannels.push_back(channel);
-		send((char*)my_request_join, joinLeaveWhoSize,"sendto request to join from client");
-		delete(my_request_join);
+		try{
+			struct request_join* my_request_join= new request_join;
+			my_request_join->req_type = REQ_JOIN;
+			initBuffer(my_request_join->req_channel, CHANNEL_MAX);
+			strcpy(my_request_join->req_channel,channel.c_str());
+			myActiveChannel = channel;
+			if (findStringPositionInVector(myChannels,channel)==-1)
+				myChannels.push_back(channel);
+			send((char*)my_request_join, joinLeaveWhoSize,"sendto request to join from client");
+			delete(my_request_join);
+		}		
+		catch (const std::exception& e) {
+			std::cerr <<"exception caught client joining channel "<<std::endl;
+		}
+
 	}
 }
 void client::leave(std::string channel){
 	truncate(channel,CHANNEL_MAX-1);
 	int position = findStringPositionInVector(myChannels,channel);
 	if (position>-1){
-		struct request_leave* my_request_leave= new request_leave;
-		my_request_leave->req_type = REQ_LEAVE;
-		initBuffer(my_request_leave->req_channel, CHANNEL_MAX);	
-		strcpy(my_request_leave->req_channel,channel.c_str());
-		send((char*)my_request_leave,joinLeaveWhoSize,"sendto request to join from client");
-		delete(my_request_leave);
-		myChannels.erase(myChannels.begin()+position);
-		if (myActiveChannel==channel){// && channel!="Common" && findStringPositionInVector(myChannels,"Common")>=0){
-			myActiveChannel="";//default to common, if still subscribed
+		try{
+			struct request_leave* my_request_leave= new request_leave;
+			my_request_leave->req_type = REQ_LEAVE;
+			initBuffer(my_request_leave->req_channel, CHANNEL_MAX);	
+			strcpy(my_request_leave->req_channel,channel.c_str());
+			send((char*)my_request_leave,joinLeaveWhoSize,"sendto request to join from client");
+			delete(my_request_leave);
+			myChannels.erase(myChannels.begin()+position);
+			if (myActiveChannel==channel){// && channel!="Common" && findStringPositionInVector(myChannels,"Common")>=0){
+				myActiveChannel="";//default to common, if still subscribed
+			}
+		}		
+		catch (const std::exception& e) {
+			std::cerr <<"exception caught client leaving channel "<<std::endl;
 		}
+		
 
 		
 	}

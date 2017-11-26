@@ -111,340 +111,346 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 		sendError("*buffer overflow error",remoteIPAddress,remotePort);
 	}
 	else if (bytesRecvd >= logoutListKeepAliveSize) {
-		struct request* incoming_request;
-		incoming_request = (struct request*)myBuffer;
-		request_t identifier = incoming_request->req_type;
-		if (identifier == REQ_LOGIN && bytesRecvd==loginSize){//login
-			struct request_login* incoming_login_request;
-			incoming_login_request = (struct request_login*)myBuffer;
-			std::string userName = std::string(incoming_login_request->req_username);
-			std::cerr << myIP <<":"<<myPort <<" "<<remoteIPAddress<<":"<<remotePort<< " recv Request login " <<userName<<std::endl;
-			bool addUser = true;
-			if (currentUsers.size()>0) {
-				for (std::vector<userInfo>::iterator iter = currentUsers.begin(); iter != currentUsers.end(); ++iter) {
-     				if (remoteIPAddress.compare((*iter).myIPAddress) == 0&&remotePort==(*iter).myPort){
-     					sendError("*error , user is already logged in.",remoteIPAddress,remotePort);
-     					addUser = false;
-     				}
-     			}
-     		}
-     		if (addUser){
-     			userInfo newUser;
-     			newUser.myUserName = userName;
-     			newUser.myIPAddress = remoteIPAddress;
-     			newUser.myPort = remotePort;
-     			newUser.lastSeen = time (NULL);
-     			currentUsers.push_back(newUser);
-     		}			     	
-		}
-		else if (identifier == REQ_LOGOUT && bytesRecvd==logoutListKeepAliveSize){//logout
-			if (currentUsers.size()>0) {
+		try{
+			struct request* incoming_request;
+			incoming_request = (struct request*)myBuffer;
+			request_t identifier = incoming_request->req_type;
+			if (identifier == REQ_LOGIN && bytesRecvd==loginSize){//login
+				struct request_login* incoming_login_request;
+				incoming_login_request = (struct request_login*)myBuffer;
+				std::string userName = std::string(incoming_login_request->req_username);
+				std::cerr << myIP <<":"<<myPort <<" "<<remoteIPAddress<<":"<<remotePort<< " recv Request login " <<userName<<std::endl;
+				bool addUser = true;
+				if (currentUsers.size()>0) {
+					for (std::vector<userInfo>::iterator iter = currentUsers.begin(); iter != currentUsers.end(); ++iter) {
+	     				if (remoteIPAddress.compare((*iter).myIPAddress) == 0&&remotePort==(*iter).myPort){
+	     					sendError("*error , user is already logged in.",remoteIPAddress,remotePort);
+	     					addUser = false;
+	     				}
+	     			}
+	     		}
+	     		if (addUser){
+	     			userInfo newUser;
+	     			newUser.myUserName = userName;
+	     			newUser.myIPAddress = remoteIPAddress;
+	     			newUser.myPort = remotePort;
+	     			newUser.lastSeen = time (NULL);
+	     			currentUsers.push_back(newUser);
+	     		}			     	
+			}
+			else if (identifier == REQ_LOGOUT && bytesRecvd==logoutListKeepAliveSize){//logout
+				if (currentUsers.size()>0) {
+					int userSlot = findUserSlot(remoteIPAddress,remotePort);
+					if (userSlot>=0){//user found in macro collection
+		 				std::string userName = currentUsers[userSlot].myUserName;
+						if ((remoteIPAddress.compare(currentUsers[userSlot].myIPAddress) == 0)&&remotePort==currentUsers[userSlot].myPort){
+	  						std::cerr<<myIP<<":"<<myPort<<" "<< currentUsers[userSlot].myIPAddress <<":"<< currentUsers[userSlot].myPort << " recv Request Logout " <<userName<<std::endl;
+	     					for (unsigned int y=0; y<currentUsers[userSlot].myChannels.size(); y++){
+								server::leave(userName,currentUsers[userSlot].myChannels[y]);
+							}
+							//log out of server subscribed channels:
+							for (unsigned int y=0; y<mySubscribedChannels.size(); y++){
+								server::leave(currentUsers[userSlot].myUserName,mySubscribedChannels[y].myChannelName);
+							}
+							currentUsers.erase(currentUsers.begin()+userSlot);
+	     					
+	     				}
+		     			
+		     		}
+	     		}
+			}
+			else if (identifier == REQ_JOIN && bytesRecvd == joinLeaveWhoSize){//join request
+				struct request_join* incoming_join_request;
+				incoming_join_request = (struct request_join*)myBuffer;
+				std::string channelToJoin = std::string(incoming_join_request->req_channel);
 				int userSlot = findUserSlot(remoteIPAddress,remotePort);
 				if (userSlot>=0){//user found in macro collection
+	 				
 	 				std::string userName = currentUsers[userSlot].myUserName;
-					if ((remoteIPAddress.compare(currentUsers[userSlot].myIPAddress) == 0)&&remotePort==currentUsers[userSlot].myPort){
-  						std::cerr<<myIP<<":"<<myPort<<" "<< currentUsers[userSlot].myIPAddress <<":"<< currentUsers[userSlot].myPort << " recv Request Logout " <<userName<<std::endl;
-     					for (unsigned int y=0; y<currentUsers[userSlot].myChannels.size(); y++){
-							server::leave(userName,currentUsers[userSlot].myChannels[y]);
-						}
-						//log out of server subscribed channels:
-						for (unsigned int y=0; y<mySubscribedChannels.size(); y++){
-							server::leave(currentUsers[userSlot].myUserName,mySubscribedChannels[y].myChannelName);
-						}
-						currentUsers.erase(currentUsers.begin()+userSlot);
-     					
-     				}
-	     			
-	     		}
-     		}
-		}
-		else if (identifier == REQ_JOIN && bytesRecvd == joinLeaveWhoSize){//join request
-			struct request_join* incoming_join_request;
-			incoming_join_request = (struct request_join*)myBuffer;
-			std::string channelToJoin = std::string(incoming_join_request->req_channel);
-			int userSlot = findUserSlot(remoteIPAddress,remotePort);
-			if (userSlot>=0){//user found in macro collection
- 				
- 				std::string userName = currentUsers[userSlot].myUserName;
-				std::cerr << myIP <<":"<<myPort <<" "<<remoteIPAddress<<":"<<remotePort<< " recv Request join " <<userName<<" "<<channelToJoin<<std::endl;
-				bool channelFound=false;
-				int position =-1;
-				for (unsigned int x=0; x <mySubscribedChannels.size(); x++){
-					if (channelToJoin.compare(mySubscribedChannels[x].myChannelName) == 0){
-     					channelFound=true;
-     					position = x;
-     					break;
-     				}
-				}
-     			struct userInfo newUserInfo;
- 				newUserInfo.myUserName=userName;
-				newUserInfo.myIPAddress=remoteIPAddress;
-				newUserInfo.myPort=remotePort;
- 				
-     			if (!channelFound){//if channel not exist, add it
-     				struct channelInfo newChannel;
-     				newChannel.myChannelName = channelToJoin;
-     				newChannel.myUsers.push_back(newUserInfo);
-     				mySubscribedChannels.push_back(newChannel);
-     				//send s2s join to neighbors
-     				sendS2Sjoin(channelToJoin,myIP,myPort);
-
-     			}
-     			else{//channel was found
-     				bool userFound=false;//check if user exists in channel already
-					for (unsigned int x=0; x <mySubscribedChannels[position].myUsers.size(); x++){
-						if (userName.compare(mySubscribedChannels[position].myUsers[x].myUserName) == 0){//handled clientside in goodclient
-	     					userFound=true;
-	     					sendError("user already in channel",remoteIPAddress,remotePort);
+					std::cerr << myIP <<":"<<myPort <<" "<<remoteIPAddress<<":"<<remotePort<< " recv Request join " <<userName<<" "<<channelToJoin<<std::endl;
+					bool channelFound=false;
+					int position =-1;
+					for (unsigned int x=0; x <mySubscribedChannels.size(); x++){
+						if (channelToJoin.compare(mySubscribedChannels[x].myChannelName) == 0){
+	     					channelFound=true;
+	     					position = x;
 	     					break;
-						}
+	     				}
 					}
-					if (!userFound){
-						mySubscribedChannels[position].myUsers.push_back(newUserInfo);
-					}
- 				}
-				currentUsers[userSlot].myActiveChannel = channelToJoin;
-				currentUsers[userSlot].lastSeen = time (NULL);
-     		}
-     		else
-     			sendError("req join user not found",remoteIPAddress,remotePort);
-		}
-		else if (identifier == REQ_LEAVE && bytesRecvd == joinLeaveWhoSize){//leave request
-			struct request_leave* incoming_leave_request;
-			incoming_leave_request = (struct request_leave*)myBuffer;
-			std::string channelToLeave = std::string(incoming_leave_request->req_channel);
-			int userSlot = findUserSlot(remoteIPAddress,remotePort);
-			if (userSlot>=0){//user found, erase from inside channel list
- 				std::string userName = currentUsers[userSlot].myUserName;
- 				std::cerr << myIP <<":"<<myPort <<" "<<remoteIPAddress<<":"<<remotePort<< " recv Request leave " <<userName<<" "<<channelToLeave<<std::endl;
-				//remove from currentUsers/mychannels
-				for (unsigned int x=0; x <currentUsers[userSlot].myChannels.size(); x++){
-					if (channelToLeave.compare(currentUsers[userSlot].myChannels[x]) == 0){
-     					currentUsers[userSlot].myChannels.erase(currentUsers[userSlot].myChannels.begin() + x);
-     					break;
-     				}
-     			}
-     			//remove from mySubscribedchannels/myusers 
-     			int channelPosition = findChannelInfoPositionInVector(mySubscribedChannels,channelToLeave);
-     			if (channelPosition>-1){
-     				int userPosition = findUserInfoPositionInVector(mySubscribedChannels[channelPosition].myUsers,userName);
-     				if (userPosition>-1){
-     					mySubscribedChannels[channelPosition].myUsers.erase(mySubscribedChannels[channelPosition].myUsers.begin()+userPosition);
+	     			struct userInfo newUserInfo;
+	 				newUserInfo.myUserName=userName;
+					newUserInfo.myIPAddress=remoteIPAddress;
+					newUserInfo.myPort=remotePort;
+	 				
+	     			if (!channelFound){//if channel not exist, add it
+	     				struct channelInfo newChannel;
+	     				newChannel.myChannelName = channelToJoin;
+	     				newChannel.myUsers.push_back(newUserInfo);
+	     				mySubscribedChannels.push_back(newChannel);
+	     				//send s2s join to neighbors
+	     				sendS2Sjoin(channelToJoin,myIP,myPort);
 
-     				}
-     				else{
-     					std::cerr << "can't find username to remove from channellist's users" <<std::endl;
-     					exit(EXIT_FAILURE);	
-     				}
-
-     			}
-     			else{
-     				std::cerr << "can't find channel in channellist to remove user from" <<std::endl;
-     				exit(EXIT_FAILURE);
-     			}
-
-
-     			leave(userName,channelToLeave);
-				if (currentUsers[userSlot].myActiveChannel==channelToLeave)
-					currentUsers[userSlot].myActiveChannel = "";
- 				currentUsers[userSlot].lastSeen = time (NULL);	
- 			}
- 			else
-     			sendError("user not found",remoteIPAddress,remotePort);
-		}
-		else if (identifier == REQ_SAY && bytesRecvd==sayRequestSize){//say request
-			struct request_say* incoming_request_say;
-			incoming_request_say = (struct request_say*)myBuffer;
-			std::string channelToAnnounce = std::string(incoming_request_say->req_channel);
-			std::string message = std::string(incoming_request_say->req_text);						
-			int userSlot = findUserSlot(remoteIPAddress,remotePort);
- 			if (userSlot>=0){//user found
-				std::cerr << myIP<<":"<<myPort<< " "<<currentUsers[userSlot].myIPAddress <<":"<< currentUsers[userSlot].myPort <<" recv Request say " <<currentUsers[userSlot].myUserName<<" "<<channelToAnnounce<<" "<<'\"'<< message<<'\"'<<std::endl;
-				handleSay(remoteIPAddress,remotePort, channelToAnnounce, message,myBuffer);
-			}
-			else
-	     		sendError("user not found",remoteIPAddress,remotePort);
-						
-		}
-		else if (identifier == REQ_KEEP_ALIVE && bytesRecvd==logoutListKeepAliveSize){//keep alive
-			int userSlot = findUserSlot(remoteIPAddress,remotePort);
- 			if (userSlot>=0){//user found
- 				std::cerr <<myIP<<":"<<myPort<<" "<< currentUsers[userSlot].myIPAddress <<":"<< currentUsers[userSlot].myPort <<" recv Request Keep Alive " <<currentUsers[userSlot].myUserName<<std::endl;
- 				currentUsers[userSlot].lastSeen = time (NULL);
- 			}
- 			else{
- 				sendError("*unknown user (please try reconnecting again in a few minutes.)",remoteIPAddress,remotePort);
- 			}
-		}
-		else if (identifier == REQ_LIST && bytesRecvd==logoutListKeepAliveSize){//list of channels
-			int userSlot = findUserSlot(remoteIPAddress,remotePort);
-			if (userSlot>=0){//user found
-				int size = mySubscribedChannels.size();
-				int reserveSize = sizeof(text_list)+sizeof(channel_info)*size-1;
-				struct text_list* my_text_list = (text_list*)malloc(reserveSize);
-				my_text_list->txt_type = TXT_LIST;
-				my_text_list->txt_nchannels = mySubscribedChannels.size();
-				for (unsigned int x=0; x<mySubscribedChannels.size(); x++){
-					initBuffer((char*)my_text_list->txt_channels[x].ch_channel, CHANNEL_MAX);
-					strcpy(my_text_list->txt_channels[x].ch_channel,mySubscribedChannels[x].myChannelName.c_str());
-				}
-				if (sendto(mySocket, my_text_list, reserveSize, 0, (struct sockaddr *)&remoteAddress, sizeof(struct sockaddr_in))==-1){
-					perror("server sending channel list error");
-					exit(EXIT_FAILURE);
-				}
-				free(my_text_list);
-				currentUsers[userSlot].lastSeen = time (NULL);
- 			}
- 			else{
-				sendError("user not found",remoteIPAddress,remotePort);
- 			}
-		}
-		else if (identifier == REQ_WHO && bytesRecvd==joinLeaveWhoSize){//list of people on certain channel
-			int userSlot = findUserSlot(remoteIPAddress,remotePort);;
-			if (userSlot>=0){
-				struct request_who* incoming_request_who;
-				incoming_request_who = (struct request_who*)myBuffer;
-				std::string channelToQuery = std::string(incoming_request_who->req_channel);
-				std::string userName = currentUsers[userSlot].myUserName;
-	 			currentUsers[userSlot].lastSeen = time (NULL);
-	 			//find given channel, check size
-				int position =-1;
-				for (unsigned int x=0; x<mySubscribedChannels.size(); x++){
-					if (channelToQuery.compare(mySubscribedChannels[x].myChannelName)==0){
-						position=x;
-						break;
-					}
-				}
-				if (position>=0){
-					int size = mySubscribedChannels[position].myUsers.size();
-					int reserveSize = sizeof(text_who)+sizeof(user_info)*size-1;
-					struct text_who* my_text_who = (text_who*)malloc(reserveSize);
-					my_text_who->txt_type = TXT_WHO;
-					my_text_who->txt_nusernames = size;
-					initBuffer(my_text_who->txt_channel, CHANNEL_MAX);
-					strcpy(my_text_who->txt_channel,channelToQuery.c_str());
-					for (unsigned int x=0; x<mySubscribedChannels[position].myUsers.size(); x++){
-						initBuffer((char*)my_text_who->txt_users[x].us_username, USERNAME_MAX);
-						strcpy(my_text_who->txt_users[x].us_username,mySubscribedChannels[position].myUsers[x].myUserName.c_str());
-					}
-					if (sendto(mySocket, my_text_who, reserveSize, 0, (struct sockaddr *)&remoteAddress, sizeof(remoteAddress))==-1){
-						perror("server sending who is error");
-						exit(EXIT_FAILURE);
-					}
-					free(my_text_who);
-
-				}
-				else
-					sendError("*channel does not exist, join to create",remoteIPAddress,remotePort);
-			}
-			else{
- 				sendError("*unknown user (please try again in a few minutes if reconnecting.)",remoteIPAddress,remotePort);
- 			}
-		}
-		else if (identifier == REQ_S2S_JOIN && bytesRecvd==s2sJoinLeaveSize){
-			struct request_s2s_join* incoming_request_s2s_join;
-			incoming_request_s2s_join = (struct request_s2s_join*)myBuffer;
-			std::string channelToJoin = std::string(incoming_request_s2s_join->req_channel);
-			std::cerr << myIP <<":"<<myPort <<" "<<remoteIPAddress<<":"<<remotePort<< " recv S2S Join " <<channelToJoin<<std::endl;					
-			if (!amSubscribed(channelToJoin)){
-				//then subscribe to channel if not:
-				//std::cerr << myIP <<":"<<myPort<< " s2s adding channel , sending s2s joins" << channelToJoin <<std::endl;
- 				struct channelInfo newChannel;
- 				newChannel.myChannelName = channelToJoin;
- 				mySubscribedChannels.push_back(newChannel);
-				//for each neighbor, send join request
-			
-				sendS2Sjoin(channelToJoin,remoteIPAddress,std::to_string(remotePort));
-			}//else amSubscribed - do nothing
-			else{
-				//std::cerr <<" already subscribed, ignoring s2s say (but adding"
-			}
-
-			int serverPosition = findServerInfoPositionInVector(remoteIPAddress,remotePort);
-			if (serverPosition>-1){
-				int channelPosition = findStringPositionInVector(serverList[serverPosition].myChannels,channelToJoin);
-				if (!(channelPosition>-1)){//don't double join
-					serverList[serverPosition].myChannels.push_back(channelToJoin);//set calling neighbor to subscribed when recv join request
-					serverList[serverPosition].myTimeStamps.push_back(time(NULL));
-				}
-				else
-					serverList[serverPosition].myTimeStamps[channelPosition] = time(NULL);
-
-			}	
-				
-
-		}
-		else if (identifier == REQ_S2S_LEAVE && bytesRecvd==s2sJoinLeaveSize){
-
-			std::cerr << myIP <<":"<<myPort <<" "<<remoteIPAddress<<":"<<remotePort<< " recv S2S Leave "<<std::endl;					
-			
-			struct request_s2s_leave* incoming_request_s2s_leave;
-			incoming_request_s2s_leave = (struct request_s2s_leave*)myBuffer;
-			std::string channel = std::string(incoming_request_s2s_leave->req_channel);
-
-			int serverPosition = findServerInfoPositionInVector(remoteIPAddress,remotePort);
-			if (serverPosition>-1){
-				//leave channel for incoming server
-				int channelPosition = findStringPositionInVector(serverList[serverPosition].myChannels,channel);
-				if (channelPosition>-1){
-					serverList[serverPosition].myChannels.erase(serverList[serverPosition].myChannels.begin()+channelPosition);
-				}
-			}
-		}
-		else if (identifier == REQ_S2S_SAY && bytesRecvd==sizeof(struct request_s2s_say)){
-			struct request_s2s_say* incoming_request_s2s_say;
-			incoming_request_s2s_say = (struct request_s2s_say*)myBuffer;
-			std::string channel = std::string(incoming_request_s2s_say->req_channel);
-			std::string userName = std::string(incoming_request_s2s_say->req_username);
-			std::string message = std::string(incoming_request_s2s_say->req_text);
-			char REQ_ID[8];
-			strcpy(REQ_ID,incoming_request_s2s_say->req_ID);
-			//determine if new or old id:
-			int checkID = findID(std::string(REQ_ID));
-
-			if (checkID>-1){
-				//std::cerr<< "found duplicate id "<<REQ_ID<<std::endl;
-				sendS2Sleave(channel,remoteIPAddress,std::to_string(remotePort),false);
-			}
-			else{
-				struct requestIDInfo newID;
-				initBuffer(newID.id,8);
-				strcpy(newID.id,REQ_ID);
-				newID.timeStamp = time(NULL);
-				myRecentRequests.push_back(newID);
-				std::cerr << myIP <<":"<<myPort <<" "<<remoteIPAddress<<":"<<remotePort<< " recv S2S Say " <<userName<<" "<<channel<<" "<<'\"'<<message<<'\"'<<std::endl;					
-				int position = findChannelInfoPositionInVector(mySubscribedChannels,channel);
-				bool noUsers = false;
-				int  serverCount = 0;
-				if (position!=-1){//we are subscribed to channel at [position]
-					int numUsers = mySubscribedChannels[position].myUsers.size();
-					if (numUsers >0){
-						sendMessage(userName, channel, message);
-					}
-					else 
-						noUsers=true;
-					sendS2Ssay(userName,channel,message,remoteIPAddress,remotePort,myIP,myPortInt,true,myBuffer);	
-					for (std::vector<serverInfo>::iterator iter = serverList.begin(); iter != serverList.end(); ++iter) {
-						if (!(((*iter).myIPAddress==remoteIPAddress)&&(*iter).myPort==remotePort)){		//don't send right back to sender
-							if (findStringPositionInVector((*iter).myChannels,channel)!=-1){//if server subscribed to channel
-								serverCount++;
+	     			}
+	     			else{//channel was found
+	     				bool userFound=false;//check if user exists in channel already
+						for (unsigned int x=0; x <mySubscribedChannels[position].myUsers.size(); x++){
+							if (userName.compare(mySubscribedChannels[position].myUsers[x].myUserName) == 0){//handled clientside in goodclient
+		     					userFound=true;
+		     					sendError("user already in channel",remoteIPAddress,remotePort);
+		     					break;
 							}
 						}
+						if (!userFound){
+							mySubscribedChannels[position].myUsers.push_back(newUserInfo);
+						}
+	 				}
+					currentUsers[userSlot].myActiveChannel = channelToJoin;
+					currentUsers[userSlot].lastSeen = time (NULL);
+	     		}
+	     		else
+	     			sendError("req join user not found",remoteIPAddress,remotePort);
+			}
+			else if (identifier == REQ_LEAVE && bytesRecvd == joinLeaveWhoSize){//leave request
+				struct request_leave* incoming_leave_request;
+				incoming_leave_request = (struct request_leave*)myBuffer;
+				std::string channelToLeave = std::string(incoming_leave_request->req_channel);
+				int userSlot = findUserSlot(remoteIPAddress,remotePort);
+				if (userSlot>=0){//user found, erase from inside channel list
+	 				std::string userName = currentUsers[userSlot].myUserName;
+	 				std::cerr << myIP <<":"<<myPort <<" "<<remoteIPAddress<<":"<<remotePort<< " recv Request leave " <<userName<<" "<<channelToLeave<<std::endl;
+					//remove from currentUsers/mychannels
+					for (unsigned int x=0; x <currentUsers[userSlot].myChannels.size(); x++){
+						if (channelToLeave.compare(currentUsers[userSlot].myChannels[x]) == 0){
+	     					currentUsers[userSlot].myChannels.erase(currentUsers[userSlot].myChannels.begin() + x);
+	     					break;
+	     				}
+	     			}
+	     			//remove from mySubscribedchannels/myusers 
+	     			int channelPosition = findChannelInfoPositionInVector(mySubscribedChannels,channelToLeave);
+	     			if (channelPosition>-1){
+	     				int userPosition = findUserInfoPositionInVector(mySubscribedChannels[channelPosition].myUsers,userName);
+	     				if (userPosition>-1){
+	     					mySubscribedChannels[channelPosition].myUsers.erase(mySubscribedChannels[channelPosition].myUsers.begin()+userPosition);
+
+	     				}
+	     				else{
+	     					std::cerr << "can't find username to remove from channellist's users" <<std::endl;
+	     					exit(EXIT_FAILURE);	
+	     				}
+
+	     			}
+	     			else{
+	     				std::cerr << "can't find channel in channellist to remove user from" <<std::endl;
+	     				exit(EXIT_FAILURE);
+	     			}
+
+
+	     			leave(userName,channelToLeave);
+					if (currentUsers[userSlot].myActiveChannel==channelToLeave)
+						currentUsers[userSlot].myActiveChannel = "";
+	 				currentUsers[userSlot].lastSeen = time (NULL);	
+	 			}
+	 			else
+	     			sendError("user not found",remoteIPAddress,remotePort);
+			}
+			else if (identifier == REQ_SAY && bytesRecvd==sayRequestSize){//say request
+				struct request_say* incoming_request_say;
+				incoming_request_say = (struct request_say*)myBuffer;
+				std::string channelToAnnounce = std::string(incoming_request_say->req_channel);
+				std::string message = std::string(incoming_request_say->req_text);						
+				int userSlot = findUserSlot(remoteIPAddress,remotePort);
+	 			if (userSlot>=0){//user found
+					std::cerr << myIP<<":"<<myPort<< " "<<currentUsers[userSlot].myIPAddress <<":"<< currentUsers[userSlot].myPort <<" recv Request say " <<currentUsers[userSlot].myUserName<<" "<<channelToAnnounce<<" "<<'\"'<< message<<'\"'<<std::endl;
+					handleSay(remoteIPAddress,remotePort, channelToAnnounce, message,myBuffer);
+				}
+				else
+		     		sendError("user not found",remoteIPAddress,remotePort);
+							
+			}
+			else if (identifier == REQ_KEEP_ALIVE && bytesRecvd==logoutListKeepAliveSize){//keep alive
+				int userSlot = findUserSlot(remoteIPAddress,remotePort);
+	 			if (userSlot>=0){//user found
+	 				std::cerr <<myIP<<":"<<myPort<<" "<< currentUsers[userSlot].myIPAddress <<":"<< currentUsers[userSlot].myPort <<" recv Request Keep Alive " <<currentUsers[userSlot].myUserName<<std::endl;
+	 				currentUsers[userSlot].lastSeen = time (NULL);
+	 			}
+	 			else{
+	 				sendError("*unknown user (please try reconnecting again in a few minutes.)",remoteIPAddress,remotePort);
+	 			}
+			}
+			else if (identifier == REQ_LIST && bytesRecvd==logoutListKeepAliveSize){//list of channels
+				int userSlot = findUserSlot(remoteIPAddress,remotePort);
+				if (userSlot>=0){//user found
+					int size = mySubscribedChannels.size();
+					int reserveSize = sizeof(text_list)+sizeof(channel_info)*size-1;
+					struct text_list* my_text_list = (text_list*)malloc(reserveSize);
+					my_text_list->txt_type = TXT_LIST;
+					my_text_list->txt_nchannels = mySubscribedChannels.size();
+					for (unsigned int x=0; x<mySubscribedChannels.size(); x++){
+						initBuffer((char*)my_text_list->txt_channels[x].ch_channel, CHANNEL_MAX);
+						strcpy(my_text_list->txt_channels[x].ch_channel,mySubscribedChannels[x].myChannelName.c_str());
 					}
-					if (noUsers && serverCount==0){//then check for other servers in list subscribed to channel (besides sender)
-						sendS2Sleave(channel,remoteIPAddress,std::to_string(remotePort),true);//if both then send s2s leave as response
+					if (sendto(mySocket, my_text_list, reserveSize, 0, (struct sockaddr *)&remoteAddress, sizeof(struct sockaddr_in))==-1){
+						perror("server sending channel list error");
+						exit(EXIT_FAILURE);
 					}
+					free(my_text_list);
+					currentUsers[userSlot].lastSeen = time (NULL);
+	 			}
+	 			else{
+					sendError("user not found",remoteIPAddress,remotePort);
+	 			}
+			}
+			else if (identifier == REQ_WHO && bytesRecvd==joinLeaveWhoSize){//list of people on certain channel
+				int userSlot = findUserSlot(remoteIPAddress,remotePort);;
+				if (userSlot>=0){
+					struct request_who* incoming_request_who;
+					incoming_request_who = (struct request_who*)myBuffer;
+					std::string channelToQuery = std::string(incoming_request_who->req_channel);
+					std::string userName = currentUsers[userSlot].myUserName;
+		 			currentUsers[userSlot].lastSeen = time (NULL);
+		 			//find given channel, check size
+					int position =-1;
+					for (unsigned int x=0; x<mySubscribedChannels.size(); x++){
+						if (channelToQuery.compare(mySubscribedChannels[x].myChannelName)==0){
+							position=x;
+							break;
+						}
+					}
+					if (position>=0){
+						int size = mySubscribedChannels[position].myUsers.size();
+						int reserveSize = sizeof(text_who)+sizeof(user_info)*size-1;
+						struct text_who* my_text_who = (text_who*)malloc(reserveSize);
+						my_text_who->txt_type = TXT_WHO;
+						my_text_who->txt_nusernames = size;
+						initBuffer(my_text_who->txt_channel, CHANNEL_MAX);
+						strcpy(my_text_who->txt_channel,channelToQuery.c_str());
+						for (unsigned int x=0; x<mySubscribedChannels[position].myUsers.size(); x++){
+							initBuffer((char*)my_text_who->txt_users[x].us_username, USERNAME_MAX);
+							strcpy(my_text_who->txt_users[x].us_username,mySubscribedChannels[position].myUsers[x].myUserName.c_str());
+						}
+						if (sendto(mySocket, my_text_who, reserveSize, 0, (struct sockaddr *)&remoteAddress, sizeof(remoteAddress))==-1){
+							perror("server sending who is error");
+							exit(EXIT_FAILURE);
+						}
+						free(my_text_who);
+
+					}
+					else
+						sendError("*channel does not exist, join to create",remoteIPAddress,remotePort);
 				}
 				else{
-					//std::cerr <<"..not subscribed to channel, ignoring."<<std::endl;
+	 				sendError("*unknown user (please try again in a few minutes if reconnecting.)",remoteIPAddress,remotePort);
+	 			}
+			}
+			else if (identifier == REQ_S2S_JOIN && bytesRecvd==s2sJoinLeaveSize){
+				struct request_s2s_join* incoming_request_s2s_join;
+				incoming_request_s2s_join = (struct request_s2s_join*)myBuffer;
+				std::string channelToJoin = std::string(incoming_request_s2s_join->req_channel);
+				std::cerr << myIP <<":"<<myPort <<" "<<remoteIPAddress<<":"<<remotePort<< " recv S2S Join " <<channelToJoin<<std::endl;					
+				if (!amSubscribed(channelToJoin)){
+					//then subscribe to channel if not:
+					//std::cerr << myIP <<":"<<myPort<< " s2s adding channel , sending s2s joins" << channelToJoin <<std::endl;
+	 				struct channelInfo newChannel;
+	 				newChannel.myChannelName = channelToJoin;
+	 				mySubscribedChannels.push_back(newChannel);
+					//for each neighbor, send join request
+				
+					sendS2Sjoin(channelToJoin,remoteIPAddress,std::to_string(remotePort));
+				}//else amSubscribed - do nothing
+				else{
+					//std::cerr <<" already subscribed, ignoring s2s say (but adding"
 				}
-			} 
-			
+
+				int serverPosition = findServerInfoPositionInVector(remoteIPAddress,remotePort);
+				if (serverPosition>-1){
+					int channelPosition = findStringPositionInVector(serverList[serverPosition].myChannels,channelToJoin);
+					if (!(channelPosition>-1)){//don't double join
+						serverList[serverPosition].myChannels.push_back(channelToJoin);//set calling neighbor to subscribed when recv join request
+						serverList[serverPosition].myTimeStamps.push_back(time(NULL));
+					}
+					else
+						serverList[serverPosition].myTimeStamps[channelPosition] = time(NULL);
+
+				}	
+					
+
+			}
+			else if (identifier == REQ_S2S_LEAVE && bytesRecvd==s2sJoinLeaveSize){
+
+				std::cerr << myIP <<":"<<myPort <<" "<<remoteIPAddress<<":"<<remotePort<< " recv S2S Leave "<<std::endl;					
+				
+				struct request_s2s_leave* incoming_request_s2s_leave;
+				incoming_request_s2s_leave = (struct request_s2s_leave*)myBuffer;
+				std::string channel = std::string(incoming_request_s2s_leave->req_channel);
+
+				int serverPosition = findServerInfoPositionInVector(remoteIPAddress,remotePort);
+				if (serverPosition>-1){
+					//leave channel for incoming server
+					int channelPosition = findStringPositionInVector(serverList[serverPosition].myChannels,channel);
+					if (channelPosition>-1){
+						serverList[serverPosition].myChannels.erase(serverList[serverPosition].myChannels.begin()+channelPosition);
+					}
+				}
+			}
+			else if (identifier == REQ_S2S_SAY && bytesRecvd==sizeof(struct request_s2s_say)){
+				struct request_s2s_say* incoming_request_s2s_say;
+				incoming_request_s2s_say = (struct request_s2s_say*)myBuffer;
+				std::string channel = std::string(incoming_request_s2s_say->req_channel);
+				std::string userName = std::string(incoming_request_s2s_say->req_username);
+				std::string message = std::string(incoming_request_s2s_say->req_text);
+				char REQ_ID[8];
+				strcpy(REQ_ID,incoming_request_s2s_say->req_ID);
+				//determine if new or old id:
+				int checkID = findID(std::string(REQ_ID));
+
+				if (checkID>-1){
+					//std::cerr<< "found duplicate id "<<REQ_ID<<std::endl;
+					sendS2Sleave(channel,remoteIPAddress,std::to_string(remotePort),false);
+				}
+				else{
+					struct requestIDInfo newID;
+					initBuffer(newID.id,8);
+					strcpy(newID.id,REQ_ID);
+					newID.timeStamp = time(NULL);
+					myRecentRequests.push_back(newID);
+					std::cerr << myIP <<":"<<myPort <<" "<<remoteIPAddress<<":"<<remotePort<< " recv S2S Say " <<userName<<" "<<channel<<" "<<'\"'<<message<<'\"'<<std::endl;					
+					int position = findChannelInfoPositionInVector(mySubscribedChannels,channel);
+					bool noUsers = false;
+					int  serverCount = 0;
+					if (position!=-1){//we are subscribed to channel at [position]
+						int numUsers = mySubscribedChannels[position].myUsers.size();
+						if (numUsers >0){
+							sendMessage(userName, channel, message);
+						}
+						else 
+							noUsers=true;
+						sendS2Ssay(userName,channel,message,remoteIPAddress,remotePort,myIP,myPortInt,true,myBuffer);	
+						for (std::vector<serverInfo>::iterator iter = serverList.begin(); iter != serverList.end(); ++iter) {
+							if (!(((*iter).myIPAddress==remoteIPAddress)&&(*iter).myPort==remotePort)){		//don't send right back to sender
+								if (findStringPositionInVector((*iter).myChannels,channel)!=-1){//if server subscribed to channel
+									serverCount++;
+								}
+							}
+						}
+						if (noUsers && serverCount==0){//then check for other servers in list subscribed to channel (besides sender)
+							sendS2Sleave(channel,remoteIPAddress,std::to_string(remotePort),true);//if both then send s2s leave as response
+						}
+					}
+					else{
+						//std::cerr <<"..not subscribed to channel, ignoring."<<std::endl;
+					}
+				} 
+				
+			}
+		
 		}
+		catch (const std::exception& e) {
+			std::cerr <<"exception caught reading packet, ignoring request"<<std::endl;
+		}
+		
 	}
 }
 void server::leave(std::string userName, std::string channelToLeave){
-	std::cerr << "leave called"<<std::endl;
 	int mastermySubscribedChannelsPosition =-1;
 	int mySubscribedChannelsNamePosition =-1;
 	for (unsigned int x=0; x <mySubscribedChannels.size(); x++){
