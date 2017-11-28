@@ -535,7 +535,7 @@ void server::bindSocket(){
 		exit(1);
 	}
 	memcpy(&myAddress.sin_addr, he->h_addr_list[0], he->h_length);
-
+	myIP=inet_ntoa(myAddress.sin_addr);//replace localhost to 127.0.0.1 internally as in docs
 
 	//myAddress.sin_addr.s_addr = inet_addr(myIP.c_str());//htonl(INADDR_ANY);//inet_addr("128.223.4.39");//
 	myAddress.sin_port = htons(std::atoi(myPort.c_str()));	
@@ -783,7 +783,25 @@ int main (int argc, char *argv[]){
 	server* myServer = new server(argv[1],argv[2]);
 	while (argc>=count){
 		struct serverInfo newNeighbor;
-		newNeighbor.myIPAddress = argv[count-2];
+
+		struct hostent     *he;
+		
+
+		newNeighbor.myAddress.sin_family = AF_INET;
+		newNeighbor.myAddress.sin_port = htons(std::atoi(argv[count-1]));
+	
+
+		if ((he = gethostbyname(argv[count-2])) == NULL) {
+			puts("error resolving hostname..");
+			exit(1);
+		}
+		memcpy(&newNeighbor.myAddress.sin_addr, he->h_addr_list[0], he->h_length);
+		newNeighbor.myIPAddress=inet_ntoa(newNeighbor.myAddress.sin_addr);//replace localhost to 127.0.0.1 internally as in docs
+
+
+
+		//std::string remoteIPAddress=inet_ntoa(remoteAddress.sin_addr)
+		//newNeighbor.myIPAddress = argv[count-2];
 		newNeighbor.myPort =  std::atoi(argv[count-1]);//lets do some input validation at some point
 		myServer->serverList.push_back(newNeighbor);
 		count +=2; 

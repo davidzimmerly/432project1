@@ -48,6 +48,7 @@ struct serverInfo
 	int myPort;
 	std::vector<std::string> myChannels;
 	std::vector<time_t> myTimeStamps;
+	struct sockaddr_in myAddress;
 };
 struct requestIDInfo
 {
