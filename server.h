@@ -10,6 +10,7 @@ class server{
 		void serve();
 	private:
 		int randomPosition;
+		unsigned int neighborCount;
 		struct sockaddr_in myAddress,remoteAddress;
 		int bytesRecvd,mySocket;
 		socklen_t addressSize;

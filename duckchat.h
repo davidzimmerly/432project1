@@ -35,6 +35,7 @@ typedef int text_t;
 #define REQ_S2S_JOIN 8
 #define REQ_S2S_LEAVE 9
 #define REQ_S2S_SAY 10
+#define REQ_S2S_LIST 11
 
 /* Define codes for text types.  These are the messages sent to the client. */
 #define TXT_SAY 0
@@ -64,7 +65,6 @@ struct request_join {
         request_t req_type; /* = REQ_JOIN */
         char req_channel[CHANNEL_MAX]; 
 } packed;
-
 
 
 
@@ -156,5 +156,13 @@ struct text_error {
         text_t txt_type; /* = TXT_ERROR */
         char txt_error[SAY_MAX]; // Error message
 }packed;
+
+struct request_s2s_list {
+        request_t req_type; /* = REQ_S2S_LIST */
+        char req_ID[ID_MAX];
+        int txt_nchannels;
+        struct channel_info txt_channels[0]; // May actually be more than 0
+} packed;
+
 
 #endif

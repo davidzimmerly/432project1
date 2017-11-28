@@ -53,9 +53,27 @@ struct serverInfo
 struct requestIDInfo
 {
 	char id[8];
-	//unsigned long long id;
 	time_t timeStamp;
 };
+
+struct listIDInfo
+{
+	char id[8];
+	bool origin;
+	
+	//if origin these will be client's ip:port, else the server you got it from's 
+	
+
+	struct sockaddr_in remoteAddress;
+	std::string remoteAddressIP;
+	int remoteAddressPort;
+	
+	time_t timeStamp;//purge every 2 min during check like other request iDs
+	std::vector<std::string> channels;
+	int received; //if this equals numNeighbors then send to either origin client as text or origin server as s2s
+};
+
+
 
 int findStringPositionInVector(std::vector<std::string> inputV, std::string inputS){
 	int found = -1;

@@ -377,11 +377,13 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 			}
 			else if (identifier == REQ_S2S_LEAVE && bytesRecvd==s2sJoinLeaveSize){
 
-				std::cerr << myIP <<":"<<myPort <<" "<<remoteIPAddress<<":"<<remotePort<< " recv S2S Leave "<<std::endl;					
+				
 				
 				struct request_s2s_leave* incoming_request_s2s_leave;
 				incoming_request_s2s_leave = (struct request_s2s_leave*)myBuffer;
 				std::string channel = std::string(incoming_request_s2s_leave->req_channel);
+
+				std::cerr << myIP <<":"<<myPort <<" "<<remoteIPAddress<<":"<<remotePort<< " recv S2S Leave "<<channel<<std::endl;					
 
 				int serverPosition = findServerInfoPositionInVector(remoteIPAddress,remotePort);
 				if (serverPosition>-1){
@@ -442,6 +444,13 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 				} 
 				
 			}
+			else if (identifier == REQ_S2S_LIST){
+
+				std::cerr << myIP <<":"<<myPort <<" "<<remoteIPAddress<<":"<<remotePort<< " recv S2S List "<<std::endl;					
+			}
+			
+
+			
 		
 		}
 		catch (const std::exception& e) {
@@ -488,6 +497,7 @@ void server::checkPurge(time_t &purgeTime,time_t &keepAliveTime){
 	//return true;			
 }
 void server::serve(){
+	neighborCount = serverList.size();
 	setTimeout(mySocket,serverTimeout/25);
 	time_t purgeTime = time (NULL);
 	time_t keepAliveTimeout = time (NULL);
@@ -512,6 +522,7 @@ void server::serve(){
 	}
 }
 server::server(char* domain, char* port){
+	neighborCount =0;
 	myIP = std::string(domain);
 	myPort = std::string(port);
 	myPortInt = std::atoi(port);
