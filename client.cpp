@@ -1,10 +1,15 @@
 #include "client.h"
 //cis432 fall 2017 David Zimmerly
 void client::keepAlive(){
-	struct request_keep_alive* my_request_keep_alive = new request_keep_alive;
-	my_request_keep_alive->req_type = REQ_KEEP_ALIVE;
-	send((char*)my_request_keep_alive,logoutListKeepAliveSize,"keep Alive");
-	delete(my_request_keep_alive);
+	try{
+		struct request_keep_alive* my_request_keep_alive = new request_keep_alive;
+		my_request_keep_alive->req_type = REQ_KEEP_ALIVE;
+		send((char*)my_request_keep_alive,logoutListKeepAliveSize,"keep Alive");
+		delete(my_request_keep_alive);
+	}		
+	catch (const std::exception& e) {
+		std::cerr <<"exception caught client stayin' Alive "<<std::endl;
+	}
 }
 void client::checkKeepAlive(time_t &keepAliveTime){
 	time_t checkTime = time(NULL);	
@@ -31,52 +36,57 @@ void client::handleServerResponse(char* replyBuffer,int bytesRecvd){
 
 	}
 	else{
-		struct text* incoming_text;
-		incoming_text = (struct text*)replyBuffer;
-		if (incoming_text->txt_type==TXT_LIST &&  bytesRecvd>=32){
-			struct text_list* incoming_text_list;
-			incoming_text_list = (struct text_list*)replyBuffer;
-			int channels = incoming_text_list->txt_nchannels;
-			struct channel_info* txt_channels;
-			txt_channels = (struct channel_info*)incoming_text_list->txt_channels;
-			std::vector<std::string> listOfChannels;
-			for (int x=0; x<channels; x++){
-				listOfChannels.push_back(std::string(txt_channels[x].ch_channel));
+		try{
+			struct text* incoming_text;
+			incoming_text = (struct text*)replyBuffer;
+			if (incoming_text->txt_type==TXT_LIST &&  bytesRecvd>=32){
+				struct text_list* incoming_text_list;
+				incoming_text_list = (struct text_list*)replyBuffer;
+				int channels = incoming_text_list->txt_nchannels;
+				struct channel_info* txt_channels;
+				txt_channels = (struct channel_info*)incoming_text_list->txt_channels;
+				std::vector<std::string> listOfChannels;
+				for (int x=0; x<channels; x++){
+					listOfChannels.push_back(std::string(txt_channels[x].ch_channel));
+				}
+				std::cerr<<"Existing channels:"<<std::endl;
+				for (std::vector<std::string>::iterator iter = listOfChannels.begin(); iter != listOfChannels.end(); ++iter) {
+					std::cerr << " "<<*iter << std::endl;
+				}
 			}
-			std::cerr<<"Existing channels:"<<std::endl;
-			for (std::vector<std::string>::iterator iter = listOfChannels.begin(); iter != listOfChannels.end(); ++iter) {
-				std::cerr << " "<<*iter << std::endl;
+			else if (incoming_text->txt_type==TXT_WHO /*&& bytesRecvd>=joinLeaveWhoSize*/){//don't know who size
+				struct text_who* incoming_text_who;
+				incoming_text_who = (struct text_who*)replyBuffer;
+				int userNames = incoming_text_who->txt_nusernames;
+				std::string channel = std::string(incoming_text_who->txt_channel);
+				struct user_info* txt_users;
+				txt_users = (struct user_info*)incoming_text_who->txt_users;
+				std::vector<std::string> listOfUsers;
+				for (int x=0; x<userNames; x++){
+					listOfUsers.push_back(std::string(txt_users[x].us_username));
+				}
+				std::cerr<<"Users on channel "<<channel<<":"<<std::endl;
+				for (std::vector<std::string>::iterator iter = listOfUsers.begin(); iter != listOfUsers.end(); ++iter) {
+					std::cerr << " "<<*iter << std::endl;
+				}
 			}
-		}
-		else if (incoming_text->txt_type==TXT_WHO /*&& bytesRecvd>=joinLeaveWhoSize*/){//don't know who size
-			struct text_who* incoming_text_who;
-			incoming_text_who = (struct text_who*)replyBuffer;
-			int userNames = incoming_text_who->txt_nusernames;
-			std::string channel = std::string(incoming_text_who->txt_channel);
-			struct user_info* txt_users;
-			txt_users = (struct user_info*)incoming_text_who->txt_users;
-			std::vector<std::string> listOfUsers;
-			for (int x=0; x<userNames; x++){
-				listOfUsers.push_back(std::string(txt_users[x].us_username));
+			else if (incoming_text->txt_type==TXT_SAY &&  bytesRecvd==saySize){
+				struct text_say* incoming_text_say;
+				incoming_text_say = (struct text_say*)replyBuffer;
+				std::string channel = incoming_text_say->txt_channel;
+				std::string userName= incoming_text_say->txt_username;
+				std::string message= incoming_text_say->txt_text;
+				std::cerr<<"["<<channel<<"]["<<userName<<"]: "<<message<<std::endl;
 			}
-			std::cerr<<"Users on channel "<<channel<<":"<<std::endl;
-			for (std::vector<std::string>::iterator iter = listOfUsers.begin(); iter != listOfUsers.end(); ++iter) {
-				std::cerr << " "<<*iter << std::endl;
+			else if (incoming_text->txt_type==TXT_ERROR && bytesRecvd>=errorSize){//packet was 132, expected 68?
+				struct text_error* incoming_text_error;
+				incoming_text_error = (struct text_error*)replyBuffer;
+				std::string errorMessage= incoming_text_error->txt_error;
+				std::cerr << errorMessage << std::endl;
 			}
-		}
-		else if (incoming_text->txt_type==TXT_SAY &&  bytesRecvd==saySize){
-			struct text_say* incoming_text_say;
-			incoming_text_say = (struct text_say*)replyBuffer;
-			std::string channel = incoming_text_say->txt_channel;
-			std::string userName= incoming_text_say->txt_username;
-			std::string message= incoming_text_say->txt_text;
-			std::cerr<<"["<<channel<<"]["<<userName<<"]: "<<message<<std::endl;
-		}
-		else if (incoming_text->txt_type==TXT_ERROR && bytesRecvd>=errorSize){//packet was 132, expected 68?
-			struct text_error* incoming_text_error;
-			incoming_text_error = (struct text_error*)replyBuffer;
-			std::string errorMessage= incoming_text_error->txt_error;
-			std::cerr << errorMessage << std::endl;
+		}		
+		catch (const std::exception& e) {
+			std::cerr <<"exception caught client handling server Response "<<std::endl;
 		}
 	}
 }
@@ -242,10 +252,18 @@ client::client(char* serverAddress, char* serverPort, char* userName){
 	}
 	remoteAddress.sin_family = AF_INET;
 	remoteAddress.sin_port = htons(remotePort);
-	if (inet_aton(remoteAddressString.c_str(), &remoteAddress.sin_addr)==0) {
-		fprintf(stderr, "inet_aton() failed\n");
+	//if (inet_aton(remoteAddressString.c_str(), &remoteAddress.sin_addr)==0) {
+	//	fprintf(stderr, "inet_aton() failed\n");
+	//	exit(1);
+	//}
+	struct hostent     *he;
+	if ((he = gethostbyname(serverAddress)) == NULL) {
+		puts("error resolving hostname..");
 		exit(1);
 	}
+	memcpy(&remoteAddress.sin_addr, he->h_addr_list[0], he->h_length);
+
+	//remoteAddress.sin_addr.s_addr = inet_addr(serverAddress);
 	myActiveChannel="";
 }
 

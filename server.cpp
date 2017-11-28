@@ -528,7 +528,16 @@ void server::bindSocket(){
 		exit(EXIT_FAILURE);
 	}
 	myAddress.sin_family = AF_INET;
-	myAddress.sin_addr.s_addr = inet_addr(myIP.c_str());//htonl(INADDR_ANY);//inet_addr("128.223.4.39");//
+	struct hostent     *he;
+
+	if ((he = gethostbyname(myIP.c_str())) == NULL) {
+		puts("error resolving hostname..");
+		exit(1);
+	}
+	memcpy(&myAddress.sin_addr, he->h_addr_list[0], he->h_length);
+
+
+	//myAddress.sin_addr.s_addr = inet_addr(myIP.c_str());//htonl(INADDR_ANY);//inet_addr("128.223.4.39");//
 	myAddress.sin_port = htons(std::atoi(myPort.c_str()));	
 	if (bind(mySocket, (struct sockaddr *)&myAddress, sizeof myAddress ) < 0) {
 		perror("bind failed");
@@ -564,7 +573,18 @@ void server::sendS2SjoinSingle(std::string toIP, int toPort, std::string channel
 	struct sockaddr_in remoteAddress;
 	remoteAddress.sin_family = AF_INET;
 	remoteAddress.sin_port = htons(toPort);
-	remoteAddress.sin_addr.s_addr = inet_addr(toIP.c_str());
+	//remoteAddress.sin_addr.s_addr = inet_addr(toIP.c_str());
+
+	struct hostent     *he;
+
+
+	if ((he = gethostbyname(toIP.c_str())) == NULL) {
+		puts("error resolving hostname..");
+		exit(1);
+	}
+	memcpy(&remoteAddress.sin_addr, he->h_addr_list[0], he->h_length);
+
+
 	std::cerr << myIP <<":"<<myPort <<" "<<toIP<<":"<<toPort<< " send S2S Join " <<channel<<std::endl;					
 	if (sendto(mySocket, my_request_s2s_join, s2sJoinLeaveSize, 0, (struct sockaddr *)&remoteAddress, sizeof(struct sockaddr_in))==-1){
 		perror("server sending s2s join request to multiple servers");
@@ -580,7 +600,19 @@ void server::sendS2Sleave(std::string channel,std::string toIP, std::string toPo
 	struct sockaddr_in remoteAddress;
 	remoteAddress.sin_family = AF_INET;
 	remoteAddress.sin_port = htons(std::atoi(toPort.c_str()));
-	remoteAddress.sin_addr.s_addr = inet_addr(toIP.c_str());
+	//remoteAddress.sin_addr.s_addr = inet_addr(toIP.c_str());
+
+
+	struct hostent     *he;
+
+
+	if ((he = gethostbyname(toIP.c_str())) == NULL) {
+		puts("error resolving hostname..");
+		exit(1);
+	}
+	memcpy(&remoteAddress.sin_addr, he->h_addr_list[0], he->h_length);
+
+
 	std::cerr << myIP <<":"<<myPort <<" "<<toIP<<":"<<toPort<< " send S2S Leave " <<channel<<std::endl;					
 	if (sendto(mySocket, (char*)my_request_s2s_leave, s2sJoinLeaveSize, 0, (struct sockaddr *)&remoteAddress, sizeof(remoteAddress))==-1){
 		perror("server sending s2s leave request to multiple servers");
@@ -625,7 +657,18 @@ void server::sendS2Ssay(std::string fromUser, std::string toChannel,std::string 
 				struct sockaddr_in remoteAddress; //should save these in serverInfo as per sample code
 				remoteAddress.sin_family = AF_INET;
 				remoteAddress.sin_port = htons((*iter).myPort);
-				remoteAddress.sin_addr.s_addr = inet_addr((*iter).myIPAddress.c_str());
+				//remoteAddress.sin_addr.s_addr = inet_addr((*iter).myIPAddress.c_str());
+				
+				
+				//wrap me in function************
+				struct hostent     *he;
+				if ((he = gethostbyname((*iter).myIPAddress.c_str())) == NULL) {
+					puts("error resolving hostname..");
+					exit(1);
+				}
+				memcpy(&remoteAddress.sin_addr, he->h_addr_list[0], he->h_length);
+
+
 				std::cerr << myIP <<":"<<myPort <<" "<<(*iter).myIPAddress<<":"<<(*iter).myPort<< " send S2S Say " <<fromUser<<" "<<toChannel<<" "<<"\""<<message<<"\""<<std::endl;					
 				if (!resend){
 					if (sendto(mySocket, (char*)my_request_s2s_say, sizeof(struct request_s2s_say), 0, (struct sockaddr *)&remoteAddress, sizeof(struct sockaddr_in))==-1){
@@ -712,7 +755,6 @@ bool server::isFromServer(std::string ip, int port){
 }		
 void server::seedRandom(){
 	char myRandomData[8];
-	//size_t randomDataLen = 0;
 	ssize_t result;
 	int randomData = open("/dev/random", O_RDONLY);
 	if (randomData < 0)
