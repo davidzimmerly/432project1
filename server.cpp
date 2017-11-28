@@ -280,7 +280,36 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 			else if (identifier == REQ_LIST && bytesRecvd==logoutListKeepAliveSize){//list of channels
 				int userSlot = findUserSlot(remoteIPAddress,remotePort);
 				if (userSlot>=0){//user found
-					int size = mySubscribedChannels.size();
+					//we will first set an internal record of the s2s_list_request
+					struct listIDInfo newRecord;
+					newRecord.origin = true;
+					
+					
+					//make a function: generate id***********
+					std::string tempString;
+				    for (int v=0; v<8; v++){
+				    	unsigned int temp =   rand()%9999999;
+				    	tempString = std::to_string(temp);
+				    }
+				    while (tempString.length()<7){
+				    	tempString = "0"+tempString;
+				    }
+				    strcpy(newRecord.id,tempString.c_str());
+					newRecord.remoteAddress.sin_family = AF_INET;
+					newRecord.remoteAddress.sin_port = remoteAddress.sin_port;
+					newRecord.remoteAddress.sin_addr = remoteAddress.sin_addr;
+					newRecord.remoteIPAddress = remoteIPAddress;
+					newRecord.remotePort = remotePort;
+					/*for (std::vector<serverInfo>::iterator iter = mySubscribedChannels.begin(); iter != mySubscribedChannels.end(); ++iter) {
+						newRecord->channels.push_back((*iter).myChannelName);
+					}*///wait for this on response in case more channels exist
+					//for each adj neighbor: send s2s_list			
+					
+					newRecord.timeStamp = time(NULL);
+					newRecord.received =0;
+				
+					//normal req_list response, changing for extra credit
+					/*int size = mySubscribedChannels.size();
 					int reserveSize = sizeof(text_list)+sizeof(channel_info)*size-1;
 					struct text_list* my_text_list = (text_list*)malloc(reserveSize);
 					my_text_list->txt_type = TXT_LIST;
@@ -293,7 +322,10 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 						perror("server sending channel list error");
 						exit(EXIT_FAILURE);
 					}
-					free(my_text_list);
+					free(my_text_list);*/
+					myRecentListRequests.push_back(newRecord);
+					
+					sendS2Slist(remoteIPAddress,std::to_string(remotePort),newRecord.id);
 					currentUsers[userSlot].lastSeen = time (NULL);
 	 			}
 	 			else{
@@ -603,6 +635,34 @@ void server::sendS2SjoinSingle(std::string toIP, int toPort, std::string channel
 	}
 	delete(my_request_s2s_join);
 }
+void server::sendS2SlistSingle(/*std::string toIP, std::string toPort,*/ struct sockaddr_in toAddress,char* id){
+	int reserveSize = sizeof(struct request_s2s_list);
+		
+
+	struct request_s2s_list* my_request_s2s_list= (request_s2s_list*)malloc(reserveSize);
+	initBuffer(my_request_s2s_list->req_ID, ID_MAX);
+	my_request_s2s_list->req_type = REQ_S2S_LIST;
+	my_request_s2s_list->txt_nchannels = 0 ;
+	my_request_s2s_list->type = 1 ;// type 1 normal, type 2 is duplicate ignore 
+	strcpy(my_request_s2s_list->req_ID,id);
+
+	if (sendto(mySocket, (char*)my_request_s2s_list, sizeof(my_request_s2s_list), 0, (struct sockaddr *)&toAddress, sizeof(toAddress))==-1){
+		perror("server sending s2s list request to multiple servers");
+		exit(EXIT_FAILURE);
+	}
+	free(my_request_s2s_list);
+}
+void server::sendS2Slist(std::string senderIP, std::string senderPort/*, struct sockaddr_in senderAddress, */,char* id){
+	//for each adj server, if not senderIP:port, send s2s list request
+	for (std::vector<serverInfo>::iterator iter = serverList.begin(); iter != serverList.end(); ++iter) {
+		if ( !(((*iter).myIPAddress==senderIP)&&(*iter).myPort==atoi(senderPort.c_str()))){
+			//send single s2s list request
+			sendS2SlistSingle(/*(*iter).myIPAddress, (*iter).myPort,*/ (*iter).myAddress,id);
+		}
+	}
+
+}
+
 void server::sendS2Sleave(std::string channel,std::string toIP, std::string toPort, bool close){//, char* buffer, bool useBuffer){
 	struct request_s2s_leave* my_request_s2s_leave= new request_s2s_leave;
 	initBuffer(my_request_s2s_leave->req_channel, CHANNEL_MAX);
