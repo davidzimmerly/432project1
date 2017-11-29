@@ -298,7 +298,7 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 					}
 					else{//no other servers, perform as in project 1
 						int size = mySubscribedChannels.size();
-						int reserveSize = sizeof(text_list)+sizeof(channel_info)*size-1;
+						int reserveSize = sizeof(text_list)+sizeof(channel_info)*size;
 						struct text_list* my_text_list = (text_list*)malloc(reserveSize);
 						my_text_list->txt_type = TXT_LIST;
 						my_text_list->txt_nchannels = mySubscribedChannels.size();
