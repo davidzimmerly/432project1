@@ -1,5 +1,31 @@
 #include "server.h"
 //cis432 fall 2017 David Zimmerly project 2
+int main (int argc, char *argv[]){
+	if (argc<3 || argc%2==0){
+		std::cerr<<"Usage: ./server domain_name port_num neighbor_server_1_IP neighbor_server_1_Port... neighbor_serverb_X_IP neighbor_serverb_X_Port"<<std::endl;
+		exit(EXIT_FAILURE);
+	}
+	int count = 5;//if >=5 (not even) parameters, start adding adjacent servers
+	server* myServer = new server(argv[1],argv[2]);
+	while (argc>=count){
+		struct serverInfo newNeighbor;
+		struct hostent     *he;
+		newNeighbor.myAddress.sin_family = AF_INET;
+		newNeighbor.myAddress.sin_port = htons(std::atoi(argv[count-1]));
+		if ((he = gethostbyname(argv[count-2])) == NULL) {
+			puts("error resolving hostname..");
+			exit(1);
+		}
+		memcpy(&newNeighbor.myAddress.sin_addr, he->h_addr_list[0], he->h_length);
+		newNeighbor.myIPAddress=inet_ntoa(newNeighbor.myAddress.sin_addr);//replace localhost to 127.0.0.1 internally as in docs
+		newNeighbor.myPort =  std::atoi(argv[count-1]);
+		myServer->serverList.push_back(newNeighbor);
+		count +=2; 
+	}
+	myServer->serve();
+	delete(myServer);
+	return 0;
+}
 int server::findUserSlot(std::string remoteIPAddress,int remotePort){
 	int userSlot=-1;
 	int size=currentUsers.size();
@@ -544,12 +570,7 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 					}
 					bool origin = myRecentListRequests[checkID].origin;
 					if (origin){//send txt list instead of s2s_req_list 
-
 						addLocalChannels(checkID);
-
-
-
-					
 						int size = myRecentListRequests[checkID].channels.size();
 						int reserveSize = sizeof(text_list)+sizeof(channel_info)*size-1;
 						struct text_list* my_text_list = (text_list*)malloc(reserveSize);
@@ -563,23 +584,10 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 							perror("server sending channel list error");
 							exit(EXIT_FAILURE);
 						}
-						std::cerr << "should of sent packet to user at " << inet_ntoa(myRecentListRequests[checkID].remoteAddress.sin_addr)<<":"<<htons(myRecentListRequests[checkID].remoteAddress.sin_port)<<std::endl;
 						free(my_text_list);
 					}
 					else{	
-						std::cerr <<myIP<<":"<<myPort<< " not origin"<<std::endl;
-
-						//mix in my channels to list channels 
-						for (unsigned int x=0; x< mySubscribedChannels.size(); x++){
-							std::string channel = mySubscribedChannels[x].myChannelName;
-							int position=-1;
-							position = findStringPositionInVector(myRecentListRequests[checkID].channels,channel);
-							if (position==-1){
-								myRecentListRequests[checkID].channels.push_back(channel);
-
-							}
-
-						}						
+						addLocalChannels(checkID);
 						//and send back to initial sender
 						unsigned int size = myRecentListRequests[checkID].channels.size();
 						unsigned int reserveSize = sizeof(struct request_s2s_list)+sizeof(channel_info)*size-1;
@@ -605,7 +613,6 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 
 				}
 				else{
-					std::cerr <<"not done"<<std::endl;
 					//wait for another
 				}
 
@@ -791,12 +798,10 @@ void server::sendS2Slist(std::string senderIP, std::string senderPort/*, struct 
 		for (std::vector<serverInfo>::iterator iter = serverList.begin(); iter != serverList.end(); ++iter) {
 			if ( !(((*iter).myIPAddress==senderIP)&&(*iter).myPort==atoi(senderPort.c_str()))  && !(((*iter).myIPAddress==myRecentListRequests[idSlot].remoteIPAddress)&&(*iter).myPort==myRecentListRequests[idSlot].remotePort)){
 				//send single s2s list request
-				std::cerr<< "serverlist address: "<<(*iter).myIPAddress<<":"<<(*iter).myPort<<std::endl;
-				std::cerr<< "sender address: "<<senderIP<<":"<<senderPort<<std::endl;
 				sendS2SlistSingle((*iter).myAddress,id,0);
 			}
 			else{
-				std::cerr << "skipped sender........."<<std::endl;
+				//std::cerr << "skipped sender........."<<std::endl;
 			}
 		}
 	}
@@ -804,9 +809,7 @@ void server::sendS2Slist(std::string senderIP, std::string senderPort/*, struct 
 		std::cerr<<"cannot find id!"<<std::endl;
 		exit(EXIT_FAILURE);
 	}
-
 }
-
 void server::sendS2Sleave(std::string channel,std::string toIP, std::string toPort, bool close){//, char* buffer, bool useBuffer){
 	struct request_s2s_leave* my_request_s2s_leave= new request_s2s_leave;
 	initBuffer(my_request_s2s_leave->req_channel, CHANNEL_MAX);
@@ -815,19 +818,12 @@ void server::sendS2Sleave(std::string channel,std::string toIP, std::string toPo
 	struct sockaddr_in remoteAddress;
 	remoteAddress.sin_family = AF_INET;
 	remoteAddress.sin_port = htons(std::atoi(toPort.c_str()));
-	//remoteAddress.sin_addr.s_addr = inet_addr(toIP.c_str());
-
-
 	struct hostent     *he;
-
-
 	if ((he = gethostbyname(toIP.c_str())) == NULL) {
 		puts("error resolving hostname..");
 		exit(1);
 	}
 	memcpy(&remoteAddress.sin_addr, he->h_addr_list[0], he->h_length);
-
-
 	std::cerr << myIP <<":"<<myPort <<" "<<toIP<<":"<<toPort<< " send S2S Leave " <<channel<<std::endl;					
 	if (sendto(mySocket, (char*)my_request_s2s_leave, s2sJoinLeaveSize, 0, (struct sockaddr *)&remoteAddress, sizeof(remoteAddress))==-1){
 		perror("server sending s2s leave request to multiple servers");
@@ -927,7 +923,8 @@ void server::handleSay(std::string fromIP, int fromPort, std::string channel, st
 			sendS2Ssay(currentUsers[userSlot].myUserName,channel,message,myIP,myPortInt,fromIP,fromPort,true,buf);	
 	}
 	else{
-		std::cerr<<"found no user at ip/port "<< fromIP<<"/"<<fromPort<< " to send from "<<std::endl;
+		std::cerr<<"found no user at ip:port "<< fromIP<<":"<<fromPort<< " to send from "<<std::endl;
+		exit(EXIT_FAILURE);
 	}
 }
 int server::findServerInfoPositionInVector(std::string ip, int port){
@@ -1018,30 +1015,4 @@ void server::addLocalChannels(int id){
 			myRecentListRequests[id].channels.push_back(channel);
 		}
 	}					
-}
-int main (int argc, char *argv[]){
-	if (argc<3 || argc%2==0){
-		std::cerr<<"Usage: ./server domain_name port_num neighbor_server_1_IP neighbor_server_1_Port... neighbor_serverb_X_IP neighbor_serverb_X_Port"<<std::endl;
-		exit(EXIT_FAILURE);
-	}
-	int count = 5;//if >=5 (not even) parameters, start adding adjacent servers
-	server* myServer = new server(argv[1],argv[2]);
-	while (argc>=count){
-		struct serverInfo newNeighbor;
-		struct hostent     *he;
-		newNeighbor.myAddress.sin_family = AF_INET;
-		newNeighbor.myAddress.sin_port = htons(std::atoi(argv[count-1]));
-		if ((he = gethostbyname(argv[count-2])) == NULL) {
-			puts("error resolving hostname..");
-			exit(1);
-		}
-		memcpy(&newNeighbor.myAddress.sin_addr, he->h_addr_list[0], he->h_length);
-		newNeighbor.myIPAddress=inet_ntoa(newNeighbor.myAddress.sin_addr);//replace localhost to 127.0.0.1 internally as in docs
-		newNeighbor.myPort =  std::atoi(argv[count-1]);
-		myServer->serverList.push_back(newNeighbor);
-		count +=2; 
-	}
-	myServer->serve();
-	delete(myServer);
-	return 0;
 }
