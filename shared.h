@@ -144,5 +144,5 @@ struct listIDInfo
 	
 	time_t timeStamp;//purge every 2 min during check like other request iDs
 	std::vector<std::string> channels;
-	int received; //if this equals numNeighbors then send to either origin client as text or origin server as s2s
+	unsigned int received; //if this equals numNeighbors then send to either origin client as text or origin server as s2s
 };

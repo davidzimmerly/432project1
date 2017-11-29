@@ -161,7 +161,7 @@ struct request_s2s_list {
         request_t req_type; /* = REQ_S2S_LIST */
         char req_ID[ID_MAX];
         int txt_nchannels;
-        int type;  // type 1 normal, type 2 is duplicate ignore 
+        int type;  // type 0 normalsend 1 responseData 2 duplicateData 
         struct channel_info txt_channels[0]; // May actually be more than 0
 } packed;
 

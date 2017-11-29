@@ -280,53 +280,63 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 			else if (identifier == REQ_LIST && bytesRecvd==logoutListKeepAliveSize){//list of channels
 				int userSlot = findUserSlot(remoteIPAddress,remotePort);
 				if (userSlot>=0){//user found
-					//we will first set an internal record of the s2s_list_request
-					struct listIDInfo newRecord;
-					newRecord.origin = true;
+					if (neighborCount>0){
+						//we will first set an internal record of the s2s_list_request
+						std::cerr<<"---------------------------------------------------"<<std::endl;
+						struct listIDInfo newRecord;
+						newRecord.origin = true;
+						
+						
+						//make a function: generate id***********
+						std::string tempString;
+					    for (int v=0; v<8; v++){
+					    	unsigned int temp =   rand()%9999999;
+					    	tempString = std::to_string(temp);
+					    }
+					    while (tempString.length()<7){
+					    	tempString = "0"+tempString;
+					    }
+					    //std::cerr << "tempString = "<<tempString<<std::endl;
+					    strcpy(newRecord.id,tempString.c_str());
+					    //std::cerr << "newRecord.id = "<<newRecord.id<<std::endl;
+						newRecord.remoteAddress.sin_family = AF_INET;
+						newRecord.remoteAddress.sin_port = remoteAddress.sin_port;
+						newRecord.remoteAddress.sin_addr = remoteAddress.sin_addr;
+						newRecord.remoteIPAddress = remoteIPAddress;
+						newRecord.remotePort = remotePort;
+						/*for (std::vector<serverInfo>::iterator iter = mySubscribedChannels.begin(); iter != mySubscribedChannels.end(); ++iter) {
+							newRecord->channels.push_back((*iter).myChannelName);
+						}*///wait for this on response in case more channels exist
+						//for each adj neighbor: send s2s_list			
+						
+						newRecord.timeStamp = time(NULL);
+						newRecord.received =0;
 					
-					
-					//make a function: generate id***********
-					std::string tempString;
-				    for (int v=0; v<8; v++){
-				    	unsigned int temp =   rand()%9999999;
-				    	tempString = std::to_string(temp);
-				    }
-				    while (tempString.length()<7){
-				    	tempString = "0"+tempString;
-				    }
-				    strcpy(newRecord.id,tempString.c_str());
-					newRecord.remoteAddress.sin_family = AF_INET;
-					newRecord.remoteAddress.sin_port = remoteAddress.sin_port;
-					newRecord.remoteAddress.sin_addr = remoteAddress.sin_addr;
-					newRecord.remoteIPAddress = remoteIPAddress;
-					newRecord.remotePort = remotePort;
-					/*for (std::vector<serverInfo>::iterator iter = mySubscribedChannels.begin(); iter != mySubscribedChannels.end(); ++iter) {
-						newRecord->channels.push_back((*iter).myChannelName);
-					}*///wait for this on response in case more channels exist
-					//for each adj neighbor: send s2s_list			
-					
-					newRecord.timeStamp = time(NULL);
-					newRecord.received =0;
-				
-					//normal req_list response, changing for extra credit
-					/*int size = mySubscribedChannels.size();
-					int reserveSize = sizeof(text_list)+sizeof(channel_info)*size-1;
-					struct text_list* my_text_list = (text_list*)malloc(reserveSize);
-					my_text_list->txt_type = TXT_LIST;
-					my_text_list->txt_nchannels = mySubscribedChannels.size();
-					for (unsigned int x=0; x<mySubscribedChannels.size(); x++){
-						initBuffer((char*)my_text_list->txt_channels[x].ch_channel, CHANNEL_MAX);
-						strcpy(my_text_list->txt_channels[x].ch_channel,mySubscribedChannels[x].myChannelName.c_str());
+						//normal req_list response, changing for extra credit
+						/**/
+						myRecentListRequests.push_back(newRecord);
+						
+						//broadcast
+						sendS2Slist(myIP,myPort,newRecord.id);
+						currentUsers[userSlot].lastSeen = time (NULL);
 					}
-					if (sendto(mySocket, my_text_list, reserveSize, 0, (struct sockaddr *)&remoteAddress, sizeof(struct sockaddr_in))==-1){
-						perror("server sending channel list error");
-						exit(EXIT_FAILURE);
+					else{//no other servers, perform regular 
+						int size = mySubscribedChannels.size();
+						int reserveSize = sizeof(text_list)+sizeof(channel_info)*size-1;
+						struct text_list* my_text_list = (text_list*)malloc(reserveSize);
+						my_text_list->txt_type = TXT_LIST;
+						my_text_list->txt_nchannels = mySubscribedChannels.size();
+						for (unsigned int x=0; x<mySubscribedChannels.size(); x++){
+							initBuffer((char*)my_text_list->txt_channels[x].ch_channel, CHANNEL_MAX);
+							strcpy(my_text_list->txt_channels[x].ch_channel,mySubscribedChannels[x].myChannelName.c_str());
+						}
+						if (sendto(mySocket, my_text_list, reserveSize, 0, (struct sockaddr *)&remoteAddress, sizeof(struct sockaddr_in))==-1){
+							perror("server sending channel list error");
+							exit(EXIT_FAILURE);
+						}
+						free(my_text_list);
+
 					}
-					free(my_text_list);*/
-					myRecentListRequests.push_back(newRecord);
-					
-					sendS2Slist(remoteIPAddress,std::to_string(remotePort),newRecord.id);
-					currentUsers[userSlot].lastSeen = time (NULL);
 	 			}
 	 			else{
 					sendError("user not found",remoteIPAddress,remotePort);
@@ -478,11 +488,231 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 			}
 			else if (identifier == REQ_S2S_LIST){
 
-				std::cerr << myIP <<":"<<myPort <<" "<<remoteIPAddress<<":"<<remotePort<< " recv S2S List "<<std::endl;					
-			}
-			
+				
+				struct request_s2s_list* incoming_request_s2s_list;
+				incoming_request_s2s_list = (struct request_s2s_list*)myBuffer;
+				char REQ_ID[8];
+				strcpy(REQ_ID,incoming_request_s2s_list->req_ID);
+				std::cerr << myIP <<":"<<myPort <<" "<<remoteIPAddress<<":"<<remotePort<< " recv S2S List with ID "<<REQ_ID<<std::endl;					
+				int channels = incoming_request_s2s_list->txt_nchannels;
+				unsigned int type = incoming_request_s2s_list->type;
+
+
+				//determine if new or old id:
+				int checkID = findlistID(std::string(REQ_ID));
+				bool done=false;
+				struct listIDInfo newRecord;
+				bool found = checkID>-1;
+				std::cerr<<".............."<<std::endl;
+				if (found){//found
+					std::cerr<< "found duplicate id "<<REQ_ID<<std::endl;
+					if (type==0){//normal request add list ID
+					//	std::cerr << "!!!!!!!!!!hmmmmmmmmmm..................found dupe type 0"<<std::endl;
+					//	exit(EXIT_FAILURE);
+						/*	unsigned int reserveSize = sizeof(struct request_s2s_list);
+		
+
+						struct request_s2s_list* my_request_s2s_list= (request_s2s_list*)malloc(reserveSize);
+						initBuffer(my_request_s2s_list->req_ID, ID_MAX);
+						my_request_s2s_list->req_type = REQ_S2S_LIST;
+						my_request_s2s_list->txt_nchannels = 0 ;
+						my_request_s2s_list->type = 2;
+						strcpy(my_request_s2s_list->req_ID,REQ_ID);
+						
+						if (sendto(mySocket, (char*)my_request_s2s_list, sizeof(my_request_s2s_list), 0, (struct sockaddr *)&remoteAddress, sizeof(remoteAddress))==-1){
+							perror("server sending s2s list request to multiple servers");
+							exit(EXIT_FAILURE);
+						}
+						free(my_request_s2s_list);*/
+						sendS2SlistSingle(remoteAddress,REQ_ID,2);
+					}
+					else if (type==2){//returned empty meaning the servers channels were counted elsewhere, will increment received and check if done
+							std::cerr <<"type 2";
+					
+					}
+					else if (type==1){//returning data
+						std::cerr<<"type 1";
+						//get this data add to existing list ID
+						std::vector<std::string> newChannels;
+						for (int x=0; x< channels; x++){
+							std::string channel = incoming_request_s2s_list->txt_channels[x].ch_channel;
+							int position = findStringPositionInVector(myRecentListRequests[checkID].channels,channel);
+							if (position==-1){
+								myRecentListRequests[checkID].channels.push_back(channel);
+							}
+
+						}
+
+					}
+					else{
+						std::cerr << "hmmmmmmmmmm..................unknown type:"<<type<<std::endl;
+						exit(EXIT_FAILURE);
+					}
+					myRecentListRequests[checkID].received++;
+					std::cerr<<std::endl;
+					//check if done:
+					if (neighborCount>0){
+						unsigned int checkNeighbor = neighborCount-1;
+						bool origin = myRecentListRequests[checkID].origin;
+						if (origin)
+							checkNeighbor = neighborCount;
+						if (myRecentListRequests[checkID].received >= checkNeighbor){
+							std::cerr << "received="<<myRecentListRequests[checkID].received<<std::endl;
+							std::cerr << "neighborCount-1="<<neighborCount-1<<std::endl;
+							std::cerr << "marking done"<<std::endl;
+							done=true;
+						}
+						else{
+							std::cerr << "not done"<<std::endl;
+						}
+					}
+					else{
+						std::cerr << "neighborCount incorrect error"<<std::endl;
+					}
+
+
+					
+							
+				}
+				else{//not found
+					std::cerr <<myIP<<":"<<myPort<< " id not found: "<<REQ_ID<<std::endl;
+					if (type==0){
+						std::cerr << "type0"<<std::endl;
+						struct listIDInfo newRecord;
+						newRecord.origin = false;
+						
+						
+						strcpy(newRecord.id,REQ_ID);
+						newRecord.remoteAddress.sin_family = AF_INET;
+						newRecord.remoteAddress.sin_port = remoteAddress.sin_port;
+						newRecord.remoteAddress.sin_addr = remoteAddress.sin_addr;
+						newRecord.remoteIPAddress = remoteIPAddress;
+						newRecord.remotePort = remotePort;
+						
+						/*for (std::vector<serverInfo>::iterator iter = mySubscribedChannels.begin(); iter != mySubscribedChannels.end(); ++iter) {
+							newRecord->channels.push_back((*iter).myChannelName);
+						}*///wait for this on response in case more channels exist
+						//for each adj neighbor: send s2s_list			
+						
+						newRecord.timeStamp = time(NULL);
+						newRecord.received =0;
+						myRecentListRequests.push_back(newRecord);
+						if (newRecord.received >= neighborCount-1){
+							std::cerr<<"not found marking done"<<std::endl;
+							done=true;
+						}
+						else{
+							std::cerr<<"rebroadcast"<<std::endl;
+							sendS2Slist(myIP,myPort,REQ_ID);
+						}
+						
+				
+					}
+					else{
+						std::cerr << "hmmmmmmmmmm..................type not 0"<<std::endl;
+						exit(EXIT_FAILURE);
+					}
+
+
+				}
+				if (done){ //since one neighbor was initial sender
+					//
+					//std::cerr<<"DONEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE"<<std::endl;
+					//std::cerr <<myIP<<":"<<myPort<< " done"<<std::endl;
+					
+					
+					if (!found){
+							checkID = findlistID(std::string(REQ_ID));
+							std::cerr<<"new check id: "<<checkID<<std::endl;
+					}
+					else{
+						std::cerr<<"check id: "<<checkID<<std::endl;	
+					}
+					bool origin = myRecentListRequests[checkID].origin;
+					if (origin){//send txt list instead of s2s_req_list 
+
+
+						std::cerr <<myIP<<":"<<myPort<< "origin"<<std::endl;
+
+
+						//mix in my channels to list channels 
+						for (unsigned int x=0; x< mySubscribedChannels.size(); x++){
+							std::string channel = mySubscribedChannels[x].myChannelName;
+							int position=-1;
+							position = findStringPositionInVector(myRecentListRequests[checkID].channels,channel);
+							if (position==-1){
+								myRecentListRequests[checkID].channels.push_back(channel);
+
+							}
+
+						}						
+						
+
+
+
+					
+						int size = myRecentListRequests[checkID].channels.size();
+						int reserveSize = sizeof(text_list)+sizeof(channel_info)*size-1;
+						struct text_list* my_text_list = (text_list*)malloc(reserveSize);
+						my_text_list->txt_type = TXT_LIST;
+						my_text_list->txt_nchannels = size;
+						for (unsigned int x=0; x<myRecentListRequests[checkID].channels.size(); x++){
+							initBuffer((char*)my_text_list->txt_channels[x].ch_channel, CHANNEL_MAX);
+							strcpy(my_text_list->txt_channels[x].ch_channel,myRecentListRequests[checkID].channels[x].c_str());
+						}
+						if (sendto(mySocket, (char*)my_text_list, reserveSize, 0, (struct sockaddr *)&myRecentListRequests[checkID].remoteAddress, sizeof(sockaddr_in))==-1){
+							perror("server sending channel list error");
+							exit(EXIT_FAILURE);
+						}
+						std::cerr << "should of sent packet to user at " << inet_ntoa(myRecentListRequests[checkID].remoteAddress.sin_addr)<<":"<<htons(myRecentListRequests[checkID].remoteAddress.sin_port)<<std::endl;
+						free(my_text_list);
+					}
+					else{	
+						std::cerr <<myIP<<":"<<myPort<< " not origin"<<std::endl;
+
+						//mix in my channels to list channels 
+						for (unsigned int x=0; x< mySubscribedChannels.size(); x++){
+							std::string channel = mySubscribedChannels[x].myChannelName;
+							int position=-1;
+							position = findStringPositionInVector(myRecentListRequests[checkID].channels,channel);
+							if (position==-1){
+								myRecentListRequests[checkID].channels.push_back(channel);
+
+							}
+
+						}						
+						//and send back to initial sender
+						unsigned int size = myRecentListRequests[checkID].channels.size();
+						unsigned int reserveSize = sizeof(struct request_s2s_list)+sizeof(channel_info)*size-1;
+								
+
+						struct request_s2s_list* my_request_s2s_list= (request_s2s_list*)malloc(reserveSize);
+						initBuffer(my_request_s2s_list->req_ID, ID_MAX);
+						my_request_s2s_list->req_type = REQ_S2S_LIST;
+						my_request_s2s_list->txt_nchannels = size ;
+						my_request_s2s_list->type = 1;
+						strcpy(my_request_s2s_list->req_ID,REQ_ID);
+						for (unsigned int x=0; x<myRecentListRequests[checkID].channels.size(); x++){
+							initBuffer((char*)my_request_s2s_list->txt_channels[x].ch_channel, CHANNEL_MAX);
+							strcpy(my_request_s2s_list->txt_channels[x].ch_channel,myRecentListRequests[checkID].channels[x].c_str());
+						}
+						if (sendto(mySocket, (char*)my_request_s2s_list, reserveSize, 0, (struct sockaddr *)&myRecentListRequests[checkID].remoteAddress, sizeof(myRecentListRequests[checkID].remoteAddress))==-1){
+							perror("server sending s2s list request to multiple servers");
+							exit(EXIT_FAILURE);
+						}
+						free(my_request_s2s_list);
+
+						}
+
+				}
+				else{
+					std::cerr <<"not done"<<std::endl;
+					//wait for another
+				}
 
 			
+
+			}
 		
 		}
 		catch (const std::exception& e) {
@@ -629,13 +859,14 @@ void server::sendS2SjoinSingle(std::string toIP, int toPort, std::string channel
 
 
 	std::cerr << myIP <<":"<<myPort <<" "<<toIP<<":"<<toPort<< " send S2S Join " <<channel<<std::endl;					
-	if (sendto(mySocket, my_request_s2s_join, s2sJoinLeaveSize, 0, (struct sockaddr *)&remoteAddress, sizeof(struct sockaddr_in))==-1){
+	if (sendto(mySocket, my_request_s2s_join, s2sJoinLeaveSize, 0, (struct sockaddr *)&remoteAddress, sizeof(sockaddr_in))==-1){
 		perror("server sending s2s join request to multiple servers");
 		exit(EXIT_FAILURE);
 	}
 	delete(my_request_s2s_join);
 }
-void server::sendS2SlistSingle(/*std::string toIP, std::string toPort,*/ struct sockaddr_in toAddress,char* id){
+void server::sendS2SlistSingle(/*std::string toIP, std::string toPort,*/ struct sockaddr_in toAddress,char* id,int type){
+	//std::cerr<<"sendS2SlistSingle called with id: "<<id<<std::endl;
 	int reserveSize = sizeof(struct request_s2s_list);
 		
 
@@ -643,22 +874,36 @@ void server::sendS2SlistSingle(/*std::string toIP, std::string toPort,*/ struct 
 	initBuffer(my_request_s2s_list->req_ID, ID_MAX);
 	my_request_s2s_list->req_type = REQ_S2S_LIST;
 	my_request_s2s_list->txt_nchannels = 0 ;
-	my_request_s2s_list->type = 1 ;// type 1 normal, type 2 is duplicate ignore 
+	my_request_s2s_list->type = type ;
 	strcpy(my_request_s2s_list->req_ID,id);
-
-	if (sendto(mySocket, (char*)my_request_s2s_list, sizeof(my_request_s2s_list), 0, (struct sockaddr *)&toAddress, sizeof(toAddress))==-1){
+	//std::cerr<<"my_request_s2s_list->req_ID id: "<<my_request_s2s_list->req_ID<<std::endl;
+	
+	if (sendto(mySocket, (char*)my_request_s2s_list, reserveSize, 0, (struct sockaddr *)&toAddress, sizeof(sockaddr_in))==-1){
 		perror("server sending s2s list request to multiple servers");
 		exit(EXIT_FAILURE);
 	}
 	free(my_request_s2s_list);
 }
 void server::sendS2Slist(std::string senderIP, std::string senderPort/*, struct sockaddr_in senderAddress, */,char* id){
+	//std::cerr<<"sendS2Slist called with id: "<<id<<std::endl;
 	//for each adj server, if not senderIP:port, send s2s list request
-	for (std::vector<serverInfo>::iterator iter = serverList.begin(); iter != serverList.end(); ++iter) {
-		if ( !(((*iter).myIPAddress==senderIP)&&(*iter).myPort==atoi(senderPort.c_str()))){
-			//send single s2s list request
-			sendS2SlistSingle(/*(*iter).myIPAddress, (*iter).myPort,*/ (*iter).myAddress,id);
+	int idSlot = findlistID(id);
+	if (idSlot>-1){
+		for (std::vector<serverInfo>::iterator iter = serverList.begin(); iter != serverList.end(); ++iter) {
+			if ( !(((*iter).myIPAddress==senderIP)&&(*iter).myPort==atoi(senderPort.c_str()))  && !(((*iter).myIPAddress==myRecentListRequests[idSlot].remoteIPAddress)&&(*iter).myPort==myRecentListRequests[idSlot].remotePort)){
+				//send single s2s list request
+				std::cerr<< "serverlist address: "<<(*iter).myIPAddress<<":"<<(*iter).myPort<<std::endl;
+				std::cerr<< "sender address: "<<senderIP<<":"<<senderPort<<std::endl;
+				sendS2SlistSingle((*iter).myAddress,id,0);
+			}
+			else{
+				std::cerr << "skipped sender........."<<std::endl;
+			}
 		}
+	}
+	else{
+		std::cerr<<"cannot find id!"<<std::endl;
+		exit(EXIT_FAILURE);
 	}
 
 }
@@ -812,6 +1057,21 @@ int server::findID(std::string input){
 			myRecentRequests.erase(myRecentRequests.begin()+x);
 		}
 		else if (strcmp(input.c_str(),myRecentRequests[x].id)==0){
+			found=x;
+			break;
+		}
+	}
+	return found;
+}
+int server::findlistID(std::string input){
+	int found = -1;
+	for (unsigned int x=0; x<myRecentListRequests.size(); x++) {
+		time_t checkTime = time(NULL);	
+		double seconds = difftime(checkTime,myRecentListRequests[x].timeStamp);
+		if (seconds>serverTimeout){
+			myRecentListRequests.erase(myRecentListRequests.begin()+x);
+		}
+		else if (strcmp(input.c_str(),myRecentListRequests[x].id)==0){
 			found=x;
 			break;
 		}
