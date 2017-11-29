@@ -41,6 +41,8 @@ class server{
 		bool isFromServer(std::string ip, int port);		
 		void seedRandom();
 		void renewJoins();
+		std::string generateID();
+		void addLocalChannels(int id);
 
 
 };
