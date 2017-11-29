@@ -528,7 +528,7 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 					}
 					else if (type==2){//returned empty meaning the servers channels were counted elsewhere, will increment received and check if done
 							std::cerr <<"type 2";
-					
+						myRecentListRequests[checkID].received++;
 					}
 					else if (type==1){//returning data
 						std::cerr<<"type 1";
@@ -542,13 +542,13 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 							}
 
 						}
-
+						myRecentListRequests[checkID].received++;
 					}
 					else{
 						std::cerr << "hmmmmmmmmmm..................unknown type:"<<type<<std::endl;
 						exit(EXIT_FAILURE);
 					}
-					myRecentListRequests[checkID].received++;
+					
 					std::cerr<<std::endl;
 					//check if done:
 					if (neighborCount>0){
