@@ -361,7 +361,7 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 					}
 					if (position>=0){
 						int size = mySubscribedChannels[position].myUsers.size();
-						int reserveSize = sizeof(text_who)+sizeof(user_info)*size-1;
+						int reserveSize = sizeof(text_who)+sizeof(user_info)*size;
 						struct text_who* my_text_who = (text_who*)malloc(reserveSize);
 						my_text_who->txt_type = TXT_WHO;
 						my_text_who->txt_nusernames = size;
@@ -487,19 +487,16 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 				unsigned int type = incoming_request_s2s_list->type;
 				std::cerr << myIP <<":"<<myPort <<" "<<remoteIPAddress<<":"<<remotePort<< " recv S2S List "<<((type>0)?"Response":"Request")<<std::endl;					
 				int channels = incoming_request_s2s_list->txt_nchannels;
-				
-
-
 				//determine if new or old id:
 				int checkID = findlistID(std::string(REQ_ID));
 				bool done=false;
 				struct listIDInfo newRecord;
 				bool found = checkID>-1;
 				if (found){//found
-					if (type==0){//normal request add list ID
+					if (type==0){//request add list ID
 						sendS2SlistSingle(remoteAddress,REQ_ID,2);
 					}
-					else if (type==2){//returned empty meaning the servers channels were counted elsewhere, will increment received and check if done
+					else if (type==2){//response returned empty meaning the servers channels were counted elsewhere, will increment received and check if done
 						myRecentListRequests[checkID].received++;
 					}
 					else if (type==1){//returning data
@@ -515,7 +512,7 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 						myRecentListRequests[checkID].received++;
 					}
 					else{
-						std::cerr << "unknown s2s list type error"<<type<<std::endl;
+						std::cerr << "unknown s2s list type error, type="<<type<<std::endl;
 						exit(EXIT_FAILURE);
 					}
 					
@@ -572,7 +569,7 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 					if (origin){//send txt list instead of s2s_req_list 
 						addLocalChannels(checkID);
 						int size = myRecentListRequests[checkID].channels.size();
-						int reserveSize = sizeof(text_list)+sizeof(channel_info)*size-1;
+						int reserveSize = sizeof(text_list)+sizeof(channel_info)*size;
 						struct text_list* my_text_list = (text_list*)malloc(reserveSize);
 						my_text_list->txt_type = TXT_LIST;
 						my_text_list->txt_nchannels = size;
@@ -590,7 +587,7 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 						addLocalChannels(checkID);
 						//and send back to initial sender
 						unsigned int size = myRecentListRequests[checkID].channels.size();
-						unsigned int reserveSize = sizeof(struct request_s2s_list)+sizeof(channel_info)*size-1;
+						unsigned int reserveSize = sizeof(struct request_s2s_list)+sizeof(channel_info)*size;
 								
 
 						struct request_s2s_list* my_request_s2s_list= (request_s2s_list*)malloc(reserveSize);
@@ -622,7 +619,7 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 		
 		}
 		catch (const std::exception& e) {
-			std::cerr <<"exception caught reading packet, ignoring request"<<std::endl;
+			std::cerr <<"exception caught reading packet, ignoring invalid request"<<std::endl;
 		}
 		
 	}
@@ -676,7 +673,7 @@ void server::serve(){
 		initBuffer(myBuffer,BUFFERLENGTH);
 		bytesRecvd = recvfrom(mySocket, myBuffer, BUFFERLENGTH, 0, (struct sockaddr *)&remoteAddress, &addressSize);
 		if (bytesRecvd<=0){//recvfrom timeout : never going to happen unless all users stop pinging in
-			/*valgrind = */
+			//valgrind = 	
 			checkPurge(purgeTime,keepAliveTimeout);
 		}
 		else if (bytesRecvd>0){
