@@ -523,7 +523,7 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 						bool origin = myRecentListRequests[checkID].origin;
 						if (origin)
 							checkNeighbor = neighborCount;//(except origin)
-						if (myRecentListRequests[checkID].received >= checkNeighbor){
+						if (myRecentListRequests[checkID].received == checkNeighbor){
 							done=true;
 						}
 						else{
@@ -548,7 +548,7 @@ void server::handleRequest(char* myBuffer,int bytesRecvd,std::string remoteIPAdd
 						newRecord.timeStamp = time(NULL);
 						newRecord.received = 0;
 						myRecentListRequests.push_back(newRecord);
-						if (newRecord.received >= neighborCount-1){
+						if (newRecord.received == neighborCount-1){
 							done=true;
 						}
 						else{

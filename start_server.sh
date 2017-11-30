@@ -46,7 +46,7 @@ $SERVER localhost 4002 localhost 4000 localhost 4005 localhost 4004&
 $SERVER localhost 4003 localhost 4001 localhost 4006 localhost 4007&
 $SERVER localhost 4004 localhost 4001 localhost 4002 localhost 4008 localhost 4007 &
 $SERVER localhost 4005 localhost 4002 localhost 4009 localhost 4008 &
-$SERVER localhost 4006 localhost 4003 localhost 4007 localhost 4010 &
+$SERVER localhost 4006 localhost 4003  localhost 4010 &
 $SERVER localhost 4007 localhost 4003 localhost 4004 localhost 4010 localhost 4011 &
 $SERVER localhost 4008 localhost 4005 localhost 4004 localhost 4011 localhost 4012 &
 $SERVER localhost 4009 localhost 4005   localhost 4012 &

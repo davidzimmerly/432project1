@@ -19,7 +19,7 @@
 #include <ctype.h>
 
 
-const int errorSize = 68;
+const int errorSize = sizeof(struct text_error);//68;
 const int keepAliveTimeout = 60;
 const int serverTimeout = 120;
 const int clientResponseWaitTime = 5;
