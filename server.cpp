@@ -973,7 +973,7 @@ bool server::isFromServer(std::string ip, int port){
 void server::seedRandom(){
 	char myRandomData[8];
 	ssize_t result;
-	int randomData = open("/dev/random", O_RDONLY);
+	int randomData = open("/dev/urandom", O_RDONLY);
 	if (randomData < 0)
 	{
 	    std::cerr << "error reading random data "<< std::endl;
